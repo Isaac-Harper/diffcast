@@ -7,13 +7,13 @@ import {
 	recentEpisodes,
 	recentFeedbackNotes,
 } from './store/episodes'
-import { listActiveListeners } from './store/listeners'
+import { listServedListeners } from './store/listeners'
 
 export const RECENT_EPISODES = 15
 export const RECENT_FEEDBACK = 10
 
 export async function dueListeners(now: Date): Promise<DueListener[]> {
-	const listeners = await listActiveListeners()
+	const listeners = await listServedListeners()
 	const candidates = selectDue(listeners, now, () => false)
 	const existing = await existingEpisodeKeys(
 		candidates.map(({ listener, date }) => ({ listenerId: listener.id, date }))

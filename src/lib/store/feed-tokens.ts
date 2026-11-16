@@ -1,4 +1,5 @@
 import { sql } from '../db'
+import { servedListener } from './served'
 
 export interface ActiveFeedToken {
 	id: number
@@ -15,11 +16,11 @@ export interface FeedTokenRow {
 	fetch_count: number
 }
 
-export async function findActiveFeedToken(tokenHash: string): Promise<ActiveFeedToken | null> {
+export async function findServedFeedToken(tokenHash: string): Promise<ActiveFeedToken | null> {
 	const rows = (await sql`
 		SELECT t.id, t.listener_id AS "listenerId"
 		FROM feed_tokens t JOIN listeners l ON l.id = t.listener_id
-		WHERE t.token_hash = ${tokenHash} AND t.revoked_at IS NULL AND l.active
+		WHERE t.token_hash = ${tokenHash} AND t.revoked_at IS NULL AND ${servedListener()}
 	`) as ActiveFeedToken[]
 	return rows[0] ?? null
 }
@@ -53,4 +54,10 @@ export async function addFeedToken(
 
 export async function revokeFeedToken(id: number): Promise<void> {
 	await sql`UPDATE feed_tokens SET revoked_at = now() WHERE id = ${id} AND revoked_at IS NULL`
+}
+
+export async function revokeListenerFeedTokens(listenerId: number): Promise<void> {
+	await sql`
+		UPDATE feed_tokens SET revoked_at = now() WHERE listener_id = ${listenerId} AND revoked_at IS NULL
+	`
 }

@@ -1,6 +1,7 @@
 import type { Dependency } from '@shared/contract'
 import { sql } from '../db'
 import { DEFAULT_INTERESTS } from '../interests'
+import { servedListener } from './served'
 
 export interface Listener {
 	id: number
@@ -12,6 +13,10 @@ export interface Listener {
 	minutes: number
 	days: number[]
 	active: boolean
+	comped: boolean
+	subscription_status: string | null
+	current_period_end: string | null
+	stripe_customer_id: string | null
 }
 
 export interface ListenerSummary extends Listener {
@@ -30,16 +35,28 @@ export interface ListenerInput {
 	days: number[]
 }
 
-export async function listActiveListeners(): Promise<Listener[]> {
+export async function listServedListeners(): Promise<Listener[]> {
 	return (await sql`
-		SELECT id, name, email, timezone, stack, focus, minutes, days, active
-		FROM listeners WHERE active ORDER BY id
+		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
+			l.subscription_status, l.current_period_end::text, l.stripe_customer_id
+		FROM listeners l WHERE ${servedListener()} ORDER BY l.id
 	`) as Listener[]
+}
+
+export async function findServedListenerByEmail(email: string): Promise<Listener | null> {
+	const rows = (await sql`
+		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
+			l.subscription_status, l.current_period_end::text, l.stripe_customer_id
+		FROM listeners l WHERE lower(l.email) = lower(${email}) AND ${servedListener()}
+		ORDER BY l.id LIMIT 1
+	`) as Listener[]
+	return rows[0] ?? null
 }
 
 export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 	return (await sql`
-		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active,
+		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
+			l.subscription_status, l.current_period_end::text, l.stripe_customer_id,
 			(SELECT count(*)::int FROM episodes e WHERE e.listener_id = l.id) AS episode_count,
 			(SELECT max(published_on)::text FROM episodes e WHERE e.listener_id = l.id) AS last_episode,
 			(SELECT max(last_fetched_at)::text FROM feed_tokens t WHERE t.listener_id = l.id)
@@ -50,8 +67,9 @@ export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 
 export async function getListener(id: number): Promise<Listener | null> {
 	const rows = (await sql`
-		SELECT id, name, email, timezone, stack, focus, minutes, days, active FROM listeners
-		WHERE id = ${id}
+		SELECT id, name, email, timezone, stack, focus, minutes, days, active, comped, subscription_status,
+			current_period_end::text, stripe_customer_id
+		FROM listeners WHERE id = ${id}
 	`) as Listener[]
 	return rows[0] ?? null
 }
@@ -61,12 +79,12 @@ export async function listenerExists(id: number): Promise<boolean> {
 	return rows.length > 0
 }
 
-export async function addListener(input: ListenerInput): Promise<number> {
+export async function addCompedListener(input: ListenerInput): Promise<number> {
 	const rows = (await sql`
 		WITH created AS (
-			INSERT INTO listeners (name, email, timezone, stack, focus, minutes, days)
+			INSERT INTO listeners (name, email, timezone, stack, focus, minutes, days, comped)
 			VALUES (${input.name}, ${input.email}, ${input.timezone}, ${JSON.stringify(input.stack)}::jsonb,
-				${input.focus}, ${input.minutes}, ${input.days}::smallint[])
+				${input.focus}, ${input.minutes}, ${input.days}::smallint[], true)
 			RETURNING id
 		), seeded AS (
 			INSERT INTO interests (listener_id, topic, sort)
@@ -99,4 +117,15 @@ export async function setListenerActive(id: number, active: boolean): Promise<vo
 
 export async function listenerNames(): Promise<{ id: number; name: string }[]> {
 	return (await sql`SELECT id, name FROM listeners ORDER BY name`) as { id: number; name: string }[]
+}
+
+export async function setListenerProfile(
+	id: number,
+	input: { timezone: string; focus: string; stack: Dependency[] }
+): Promise<void> {
+	await sql`
+		UPDATE listeners SET timezone = ${input.timezone}, focus = ${input.focus},
+			stack = ${JSON.stringify(input.stack)}::jsonb
+		WHERE id = ${id}
+	`
 }

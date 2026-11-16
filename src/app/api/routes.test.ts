@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
 import { jobFailures } from '@/lib/job-auth'
+import { isServed } from '@/lib/served'
 import { SESSION_COOKIE, signingKey, signSession } from '@/lib/session'
 import { GET as audio, HEAD as audioHead } from './audio/[token]/[file]/route'
 import { GET as feed } from './feed/[token]/route'
@@ -26,6 +27,8 @@ const state = vi.hoisted(() => ({
 		minutes: number
 		days: number[]
 		active: boolean
+		comped: boolean
+		subscription_status: string | null
 	}[],
 	episodes: [] as { id: number; listenerId: number; date: string; audioUrl: string }[],
 	saved: [] as unknown[],
@@ -42,17 +45,17 @@ vi.mock('@/lib/db', () => ({
 	},
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
-	findActiveFeedToken: async (hash: string) => {
+	findServedFeedToken: async (hash: string) => {
 		const token = state.tokens.get(hash)
 		const owner = state.listeners.find((listener) => listener.id === token?.listenerId)
-		return token && owner?.active ? token : null
+		return token && owner && isServed(owner) ? token : null
 	},
 	recordFeedFetch: async (id: number) => {
 		state.fetches.push(id)
 	},
 }))
 vi.mock('@/lib/store/listeners', () => ({
-	listActiveListeners: async () => state.listeners.filter((listener) => listener.active),
+	listServedListeners: async () => state.listeners.filter(isServed),
 	getListener: async (id: number) => state.listeners.find((listener) => listener.id === id) ?? null,
 	listenerExists: async (id: number) => state.listeners.some((listener) => listener.id === id),
 }))
@@ -236,6 +239,8 @@ function reset() {
 			minutes: 10,
 			days: [1, 2, 3, 4, 5, 6, 7],
 			active: true,
+			comped: true,
+			subscription_status: null,
 		},
 		{
 			id: 2,
@@ -247,6 +252,8 @@ function reset() {
 			minutes: 8,
 			days: [1, 2, 3, 4, 5],
 			active: true,
+			comped: false,
+			subscription_status: 'active',
 		},
 		{
 			id: 3,
@@ -258,6 +265,8 @@ function reset() {
 			minutes: 10,
 			days: [1, 2, 3, 4, 5, 6, 7],
 			active: false,
+			comped: true,
+			subscription_status: null,
 		},
 	]
 	state.episodes = [
@@ -579,5 +588,25 @@ describe('feed and audio', () => {
 		expect(state.downloads).toEqual([])
 		const other = await feed(request(`/api/feed/${FEED_TWO}`), tokenParams(FEED_TWO))
 		expect(other.status).toBe(200)
+	})
+
+	it('stops a canceled or unpaid subscriber and keeps serving one past due', async () => {
+		const bo = state.listeners.find((listener) => listener.id === 2)
+		if (!bo) throw new Error('fixture')
+		for (const [status, expected] of [
+			['canceled', 404],
+			['unpaid', 404],
+			['incomplete', 404],
+			['past_due', 200],
+			['active', 200],
+		] as const) {
+			feedMisses.clear()
+			bo.subscription_status = status
+			const response = await feed(request(`/api/feed/${FEED_TWO}`), tokenParams(FEED_TWO))
+			expect(response.status, status).toBe(expected)
+		}
+		bo.subscription_status = 'canceled'
+		const tokyo = await due(request('/api/jobs/due?now=2026-11-16T19:00:00Z', { auth: bearer }))
+		expect(((await tokyo.json()) as { listeners: unknown[] }).listeners).toEqual([])
 	})
 })

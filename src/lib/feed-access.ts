@@ -1,5 +1,5 @@
 import { hashFeedToken, isFeedToken } from './feed-tokens'
-import { findActiveFeedToken } from './store/feed-tokens'
+import { findServedFeedToken } from './store/feed-tokens'
 import type { ActiveFeedToken } from './store/feed-tokens'
 import { pause, requestIp, Throttle } from './throttle'
 
@@ -13,7 +13,7 @@ export type MissStatus = 404 | 429
 
 async function lookupFeedToken(token: string): Promise<ActiveFeedToken | null> {
 	if (!isFeedToken(token)) return null
-	return findActiveFeedToken(hashFeedToken(token))
+	return findServedFeedToken(hashFeedToken(token))
 }
 
 export async function recordMiss(ip: string, delayMs: number = MISS_DELAY_MS): Promise<MissStatus> {

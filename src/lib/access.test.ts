@@ -18,7 +18,7 @@ vi.mock('./store/feed-tokens', async (importOriginal) => {
 	const original = await importOriginal<typeof import('./store/feed-tokens')>()
 	return {
 		...original,
-		findActiveFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
+		findServedFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
 	}
 })
 
@@ -87,12 +87,15 @@ describe('job auth throttle', () => {
 	})
 })
 
-describe('deactivated listeners', () => {
-	it('only finds tokens of active listeners', async () => {
-		const { findActiveFeedToken } =
+describe('served listeners', () => {
+	it('only finds tokens of served listeners', async () => {
+		const { findServedFeedToken } =
 			await vi.importActual<typeof import('./store/feed-tokens')>('./store/feed-tokens')
-		await findActiveFeedToken('hash')
-		expect(state.queries).toHaveLength(1)
-		expect(state.queries[0]).toMatch(/revoked_at IS NULL AND l\.active/)
+		await findServedFeedToken('hash')
+		expect(state.queries).toHaveLength(2)
+		expect(state.queries).toContainEqual(
+			expect.stringMatching(/^\(l\.active AND \(l\.comped OR l\.subscription_status = ANY\(/)
+		)
+		expect(state.queries).toContainEqual(expect.stringMatching(/revoked_at IS NULL AND \?$/m))
 	})
 })
