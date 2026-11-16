@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { CopyButton } from '@/app/components/copy-button'
+import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
 import { SegmentList } from '@/app/components/segment-list'
 import { Wordmark } from '@/app/components/wordmark'
 import { feedAccess } from '@/lib/feed-access'
@@ -11,11 +13,12 @@ import { FEED_EPISODES } from '@/lib/feed'
 import { formatDate, formatMinutes } from '@/lib/format'
 import { requestOrigin } from '@/lib/http'
 import { listFeedEpisodes } from '@/lib/store/episodes'
-import { latestFeedbackForListener, latestSurvey } from '@/lib/store/feedback'
+import { latestFeedbackForListener } from '@/lib/store/feedback'
 import { listInterests } from '@/lib/store/interests'
 import { getListener } from '@/lib/store/listeners'
 import { forwardedIp } from '@/lib/throttle'
-import { DaysForm, FeedbackForm, InterestsForm, SurveyForm } from './forms'
+import { saveMyDays, saveMyInterests } from './actions'
+import { FeedbackForm } from './forms'
 
 export const metadata: Metadata = {
 	title: 'Your Diffcast',
@@ -29,11 +32,10 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 	const access = await feedAccess(forwardedIp(headerList.get('x-forwarded-for')), token)
 	if (typeof access === 'number') notFound()
 
-	const [listener, episodes, feedback, survey, interests] = await Promise.all([
+	const [listener, episodes, feedback, interests] = await Promise.all([
 		getListener(access.listenerId),
 		listFeedEpisodes(access.listenerId, FEED_EPISODES),
 		latestFeedbackForListener(access.listenerId),
-		latestSurvey(access.listenerId),
 		listInterests(access.listenerId),
 	])
 	if (!listener) notFound()
@@ -45,30 +47,27 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 			<header className="space-y-1">
 				<Wordmark className="text-sm" />
 				<h1 className="text-title font-semibold text-balance">Diffcast for {listener.name}</h1>
+				<p className="text-sm text-muted">
+					Billing, your stack and new feed links live in{' '}
+					<Link href="/account" className="font-medium text-fg">
+						your account
+					</Link>
+					.
+				</p>
 			</header>
-
-			<section className="card space-y-3" aria-labelledby="survey-heading">
-				<h2 id="survey-heading" className="text-lg font-semibold">
-					Would you pay $25 a month for this?
-				</h2>
-				<SurveyForm
-					token={token}
-					current={survey ? { wouldPay: survey.would_pay, note: survey.note } : null}
-				/>
-			</section>
 
 			<section className="card space-y-3" aria-labelledby="interests-heading">
 				<h2 id="interests-heading" className="font-medium">
 					What your episodes cover
 				</h2>
-				<InterestsForm token={token} interests={interests} />
+				<InterestsForm action={saveMyInterests} hidden={{ token }} interests={interests} />
 			</section>
 
 			<section className="card space-y-3" aria-labelledby="days-heading">
 				<h2 id="days-heading" className="font-medium">
 					When episodes arrive
 				</h2>
-				<DaysForm token={token} days={listener.days} />
+				<DaysForm action={saveMyDays} hidden={{ token }} days={listener.days} />
 			</section>
 
 			<section className="card space-y-2 text-sm" aria-labelledby="feed-heading">

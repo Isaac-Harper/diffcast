@@ -12,14 +12,13 @@ import { parseStack, STACK_FORMATS } from '@/lib/stack-parser'
 import type { StackFormat } from '@/lib/stack-parser'
 import { addFeedToken, revokeFeedToken } from '@/lib/store/feed-tokens'
 import {
-	addListener,
+	addCompedListener,
 	listenerExists,
 	setListenerActive,
 	updateListener,
 } from '@/lib/store/listeners'
 import { hasInterestsEditor, parseInterestsEditor } from '@/lib/interests-form'
 import { saveInterests } from '@/lib/store/interests'
-import { markWaitlistInvited } from '@/lib/store/waitlist'
 
 export type SaveResult = { error: string | null }
 export type PreviewResult = { ok: true; dependencies: Dependency[] } | { ok: false; error: string }
@@ -36,10 +35,8 @@ export async function saveListener(_previous: SaveResult, form: FormData): Promi
 	if (interests && !interests.ok) return { error: interests.error }
 	const id = wholeId(form.get('id'))
 	if (id === null) {
-		const created = await addListener(parsed.input)
+		const created = await addCompedListener(parsed.input)
 		if (interests) await saveInterests(created, interests.input)
-		const waitlistId = wholeId(form.get('waitlistId'))
-		if (waitlistId !== null) await markWaitlistInvited(waitlistId)
 		redirect(`/admin/listeners/${created}`)
 	}
 	if (!(await listenerExists(id))) return { error: 'Unknown listener.' }

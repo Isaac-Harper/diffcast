@@ -29,8 +29,8 @@ vi.mock('next/headers', () => ({
 }))
 vi.mock('@/lib/store/listeners', () => ({
 	listenerExists: async () => true,
-	addListener: async () => {
-		state.writes.push('addListener')
+	addCompedListener: async () => {
+		state.writes.push('addCompedListener')
 		return 1
 	},
 	updateListener: async () => {
@@ -45,11 +45,6 @@ vi.mock('@/lib/store/interests', () => ({
 		state.writes.push(
 			`saveInterests:${listenerId}:${rows.map((row) => `${row.topic}=${row.active}`).join(',')}`
 		)
-	},
-}))
-vi.mock('@/lib/store/waitlist', () => ({
-	markWaitlistInvited: async (id: number) => {
-		state.writes.push(`markWaitlistInvited:${id}`)
 	},
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
@@ -140,24 +135,24 @@ describe('admin actions', () => {
 		expect(state.writes).toEqual(['addFeedToken', 'setListenerActive', 'revokeFeedToken'])
 	})
 
-	it('stamps the waitlist entry when a listener is created from it', async () => {
+	it('creates a listener and redirects to it', async () => {
 		state.session = signSession(signingKey(SECRET, PASSWORD))
 		await expect(
 			saveListener(
 				{ error: null },
-				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1', waitlistId: '7' })
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1' })
 			)
 		).rejects.toMatchObject({
 			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/admin\/listeners\/1/),
 		})
-		expect(state.writes).toEqual(['addListener', 'markWaitlistInvited:7'])
+		expect(state.writes).toEqual(['addCompedListener'])
 	})
 
-	it('does not stamp the waitlist without a session', async () => {
+	it('does not create a listener without a session', async () => {
 		await expect(
 			saveListener(
 				{ error: null },
-				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1', waitlistId: '7' })
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1' })
 			)
 		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/) })
 		expect(state.writes).toEqual([])
@@ -194,7 +189,7 @@ describe('admin actions', () => {
 		expect(state.writes).toEqual([
 			'updateListener',
 			'saveInterests:1:Security=true,Databases=false',
-			'addListener',
+			'addCompedListener',
 			'saveInterests:1:Security=true,Databases=false',
 		])
 	})

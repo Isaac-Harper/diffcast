@@ -4,14 +4,13 @@ import { refresh } from 'next/cache'
 import { feedAccess } from '@/lib/feed-access'
 import type { MissStatus } from '@/lib/feed-access'
 import { parseInterestsEditor } from '@/lib/interests-form'
-import { parseDaysForm, parseFeedbackForm, parseSurveyForm, text, wholeId } from '@/lib/forms'
+import { parseDaysForm, parseFeedbackForm, text, wholeId } from '@/lib/forms'
+import type { FormResult } from '@/lib/form-result'
 import { clientIp } from '@/lib/login-throttle'
 import { listenerOwnsEpisode } from '@/lib/store/episodes'
-import { addFeedback, addSurvey } from '@/lib/store/feedback'
+import { addFeedback } from '@/lib/store/feedback'
 import { saveInterests } from '@/lib/store/interests'
 import { setListenerDays } from '@/lib/store/listeners'
-
-export type FormResult = { status: 'idle' | 'saved' | 'error'; message: string }
 
 function denied(status: MissStatus): FormResult {
 	return {
@@ -31,16 +30,6 @@ export async function submitFeedback(_previous: FormResult, form: FormData): Pro
 	const parsed = parseFeedbackForm(form)
 	if (!parsed.ok) return { status: 'error', message: parsed.error }
 	await addFeedback(episodeId, parsed.input)
-	refresh()
-	return { status: 'saved', message: 'Thanks, saved.' }
-}
-
-export async function submitSurvey(_previous: FormResult, form: FormData): Promise<FormResult> {
-	const access = await feedAccess(await clientIp(), text(form, 'token', 64))
-	if (typeof access === 'number') return denied(access)
-	const parsed = parseSurveyForm(form)
-	if (!parsed.ok) return { status: 'error', message: parsed.error }
-	await addSurvey(access.listenerId, parsed.input)
 	refresh()
 	return { status: 'saved', message: 'Thanks, saved.' }
 }

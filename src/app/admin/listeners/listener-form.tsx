@@ -39,19 +39,11 @@ export function ListenerForm({
 	interests,
 	stackLines,
 	timeZones,
-	waitlistId,
-	initialName,
-	initialEmail,
-	initialFocus,
 }: {
 	listener: Listener | null
 	interests: readonly InterestRow[]
 	stackLines: string
 	timeZones: string[]
-	waitlistId?: number
-	initialName?: string
-	initialEmail?: string
-	initialFocus?: string
 }) {
 	const [result, action] = useActionState<SaveResult, FormData>(saveListener, { error: null })
 	const [stack, setStack] = useState(stackLines)
@@ -65,16 +57,10 @@ export function ListenerForm({
 	return (
 		<form action={action} className="space-y-4">
 			{listener && <input type="hidden" name="id" value={listener.id} />}
-			{waitlistId !== undefined && <input type="hidden" name="waitlistId" value={waitlistId} />}
 			<div className="grid gap-4 sm:grid-cols-2">
 				<Field name="name">
 					<FieldLabel>Name</FieldLabel>
-					<Input
-						required
-						maxLength={120}
-						autoComplete="off"
-						defaultValue={listener?.name ?? initialName ?? ''}
-					/>
+					<Input required maxLength={120} autoComplete="off" defaultValue={listener?.name ?? ''} />
 				</Field>
 				<Field name="email">
 					<FieldLabel>Email (optional)</FieldLabel>
@@ -82,7 +68,7 @@ export function ListenerForm({
 						type="email"
 						autoComplete="off"
 						spellCheck={false}
-						defaultValue={listener?.email ?? initialEmail ?? ''}
+						defaultValue={listener?.email ?? ''}
 					/>
 				</Field>
 				<Field name="timezone">
@@ -123,7 +109,7 @@ export function ListenerForm({
 			/>
 			<Field name="focus">
 				<FieldLabel>Focus (what they work on, in their words)</FieldLabel>
-				<Textarea rows={4} maxLength={2000} defaultValue={listener?.focus ?? initialFocus ?? ''} />
+				<Textarea rows={4} maxLength={2000} defaultValue={listener?.focus ?? ''} />
 			</Field>
 			<section className="space-y-3" aria-labelledby="interests-heading">
 				<h2 id="interests-heading" className="text-sm font-medium">

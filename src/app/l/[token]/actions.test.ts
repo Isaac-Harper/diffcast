@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { saveMyDays, saveMyInterests, submitFeedback, submitSurvey } from './actions'
+import { saveMyDays, saveMyInterests, submitFeedback } from './actions'
 
 const state = vi.hoisted(() => ({
 	tokens: new Map<string, { id: number; listenerId: number }>(),
 	feedback: [] as { episodeId: number; input: unknown }[],
-	surveys: [] as { listenerId: number; input: unknown }[],
 	interests: [] as { listenerId: number; rows: unknown }[],
 	days: [] as { listenerId: number; days: number[] }[],
 	ip: '192.0.2.50',
@@ -22,7 +21,7 @@ vi.mock('next/headers', () => ({
 	headers: async () => new Headers({ 'x-forwarded-for': state.ip }),
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
-	findActiveFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
+	findServedFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
 }))
 vi.mock('@/lib/store/episodes', () => ({
 	listenerOwnsEpisode: async (listenerId: number, episodeId: number) =>
@@ -42,9 +41,6 @@ vi.mock('@/lib/store/feedback', () => ({
 	addFeedback: async (episodeId: number, input: unknown) => {
 		state.feedback.push({ episodeId, input })
 	},
-	addSurvey: async (listenerId: number, input: unknown) => {
-		state.surveys.push({ listenerId, input })
-	},
 }))
 
 const ONE = '1'.repeat(64)
@@ -61,7 +57,6 @@ describe('listener page actions', () => {
 	beforeEach(() => {
 		state.tokens = new Map([[hashFeedToken(ONE), { id: 11, listenerId: 1 }]])
 		state.feedback.length = 0
-		state.surveys.length = 0
 		state.interests.length = 0
 		state.days.length = 0
 		state.ip = '192.0.2.50'
@@ -98,16 +93,7 @@ describe('listener page actions', () => {
 			form({ token: ONE, episodeId: '101', listened: 'kinda' })
 		)
 		expect(bad.status).toBe('error')
-		const survey = await submitSurvey(IDLE, form({ token: REVOKED, wouldPay: 'yes' }))
-		expect(survey.status).toBe('error')
 		expect(state.feedback).toEqual([])
-		expect(state.surveys).toEqual([])
-	})
-
-	it('saves the survey for the token listener', async () => {
-		const result = await submitSurvey(IDLE, form({ token: ONE, wouldPay: 'maybe', note: 'At $10' }))
-		expect(result.status).toBe('saved')
-		expect(state.surveys).toEqual([{ listenerId: 1, input: { wouldPay: 'maybe', note: 'At $10' } }])
 	})
 
 	it('applies the miss throttle: a blocked IP cannot use even a valid token', async () => {
@@ -116,18 +102,18 @@ describe('listener page actions', () => {
 			IDLE,
 			form({ token: ONE, episodeId: '101', listened: 'yes' })
 		)
-		const survey = await submitSurvey(IDLE, form({ token: ONE, wouldPay: 'yes' }))
-		for (const result of [feedback, survey]) {
-			expect(result).toEqual({ status: 'error', message: 'Too many attempts. Try again later.' })
-		}
+		expect(feedback).toEqual({ status: 'error', message: 'Too many attempts. Try again later.' })
 		expect(state.feedback).toEqual([])
-		expect(state.surveys).toEqual([])
 		state.ip = '192.0.2.51'
-		expect((await submitSurvey(IDLE, form({ token: ONE, wouldPay: 'yes' }))).status).toBe('saved')
+		const allowed = await submitFeedback(
+			IDLE,
+			form({ token: ONE, episodeId: '101', listened: 'yes' })
+		)
+		expect(allowed.status).toBe('saved')
 	})
 
 	it('counts a bad token as a miss', async () => {
-		await submitSurvey(IDLE, form({ token: REVOKED, wouldPay: 'yes' }))
+		await submitFeedback(IDLE, form({ token: REVOKED, episodeId: '101', listened: 'yes' }))
 		expect(feedMisses.blocked(state.ip)).toBe(false)
 		for (let index = 0; index < 9; index += 1) feedMisses.add(state.ip)
 		expect(feedMisses.blocked(state.ip)).toBe(true)

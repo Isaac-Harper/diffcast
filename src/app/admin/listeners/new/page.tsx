@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
 import { requireSession } from '@/lib/auth'
-import { wholeId } from '@/lib/forms'
 import { DEFAULT_INTERESTS } from '@/lib/interests'
-import { getWaitlistEntry } from '@/lib/store/waitlist'
 import { COMMON_TIME_ZONES } from '@/lib/time'
-import { waitlistName } from '@/lib/waitlist'
 import { ListenerForm } from '../listener-form'
 
 const STARTING_INTERESTS = DEFAULT_INTERESTS.map((topic) => ({
@@ -16,37 +13,20 @@ const STARTING_INTERESTS = DEFAULT_INTERESTS.map((topic) => ({
 
 export const metadata: Metadata = { title: 'Add listener' }
 
-export default async function NewListenerPage({ searchParams }: PageProps<'/admin/listeners/new'>) {
+export default async function NewListenerPage() {
 	await requireSession()
-	const raw = (await searchParams)['waitlist']
-	const waitlistId = wholeId(typeof raw === 'string' ? raw : null)
-	const entry = waitlistId === null ? null : await getWaitlistEntry(waitlistId)
-
 	return (
 		<div className="max-w-2xl space-y-4">
 			<h1 className="text-xl font-semibold">Add listener</h1>
-			{entry ? (
-				<>
-					<p className="text-sm text-muted">Inviting {entry.email} from the waitlist</p>
-					<ListenerForm
-						listener={null}
-						interests={STARTING_INTERESTS}
-						stackLines={entry.stack_text}
-						timeZones={COMMON_TIME_ZONES}
-						waitlistId={entry.id}
-						initialName={waitlistName(entry.email)}
-						initialEmail={entry.email}
-						initialFocus={entry.interests_text}
-					/>
-				</>
-			) : (
-				<ListenerForm
-					listener={null}
-					interests={STARTING_INTERESTS}
-					stackLines=""
-					timeZones={COMMON_TIME_ZONES}
-				/>
-			)}
+			<p className="text-sm text-muted">
+				Listeners added here are comped: they get episodes without a subscription.
+			</p>
+			<ListenerForm
+				listener={null}
+				interests={STARTING_INTERESTS}
+				stackLines=""
+				timeZones={COMMON_TIME_ZONES}
+			/>
 		</div>
 	)
 }

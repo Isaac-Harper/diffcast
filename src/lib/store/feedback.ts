@@ -1,16 +1,10 @@
 import { sql } from '../db'
-import type { Listened, Useful, Verdict, WouldPay } from '../episode-types'
+import type { Listened, Useful, Verdict } from '../episode-types'
 
 export interface FeedbackRow {
 	episode_id: number
 	listened: Listened
 	useful: Useful | null
-	note: string
-	created_at: string
-}
-
-export interface SurveyRow {
-	would_pay: WouldPay
 	note: string
 	created_at: string
 }
@@ -53,24 +47,6 @@ export async function feedbackForEpisode(episodeId: number): Promise<FeedbackRow
 		SELECT episode_id, listened, useful, note, created_at::text FROM feedback
 		WHERE episode_id = ${episodeId} ORDER BY created_at DESC, id DESC
 	`) as FeedbackRow[]
-}
-
-export async function addSurvey(
-	listenerId: number,
-	input: { wouldPay: WouldPay; note: string }
-): Promise<void> {
-	await sql`
-		INSERT INTO surveys (listener_id, would_pay, note)
-		VALUES (${listenerId}, ${input.wouldPay}, ${input.note})
-	`
-}
-
-export async function latestSurvey(listenerId: number): Promise<SurveyRow | null> {
-	const rows = (await sql`
-		SELECT would_pay, note, created_at::text FROM surveys WHERE listener_id = ${listenerId}
-		ORDER BY created_at DESC, id DESC LIMIT 1
-	`) as SurveyRow[]
-	return rows[0] ?? null
 }
 
 export async function segmentChecks(episodeId: number): Promise<SegmentCheckRow[]> {

@@ -13,7 +13,7 @@ import {
 	newFeedToken,
 	userAgent,
 } from './feed-tokens'
-import { parseFeedbackForm, parseListenerForm, parseSurveyForm } from './forms'
+import { parseFeedbackForm, parseListenerForm } from './forms'
 import { formatForDate, normalizeDays, scheduleLabel } from './schedule'
 import { signSession, signingKey, verifySession } from './session'
 import { calendarDaysFrom, isTimeZone, zonedInstant } from './time'
@@ -351,7 +351,7 @@ describe('forms', () => {
 		expect(parseListenerForm(form({ ...base, name: ' ' })).ok).toBe(false)
 	})
 
-	it('parses feedback and the survey', () => {
+	it('parses feedback', () => {
 		expect(parseFeedbackForm(form({ listened: 'partly', useful: 'up', note: ' ok ' }))).toEqual({
 			ok: true,
 			input: { listened: 'partly', useful: 'up', note: 'ok' },
@@ -362,10 +362,5 @@ describe('forms', () => {
 		})
 		expect(parseFeedbackForm(form({ listened: 'maybe' })).ok).toBe(false)
 		expect(parseFeedbackForm(form({ listened: 'yes', useful: 'sideways' })).ok).toBe(false)
-		expect(parseSurveyForm(form({ wouldPay: 'maybe' }))).toEqual({
-			ok: true,
-			input: { wouldPay: 'maybe', note: '' },
-		})
-		expect(parseSurveyForm(form({ wouldPay: 'sure' })).ok).toBe(false)
 	})
 })
