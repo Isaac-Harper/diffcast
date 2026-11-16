@@ -1,8 +1,7 @@
 import { SubmitButton } from '@/app/components/submit-button'
 import { Wordmark } from '@/app/components/wordmark'
 import type { AuthorizeRequest } from '@/lib/oauth/authorize-request'
-import { isClientIdUrl } from '@/lib/oauth/client-metadata'
-import { isLoopbackRedirect, redirectHost } from '@/lib/oauth/redirect-uris'
+import { isAppOrLoopbackRedirect, redirectHost } from '@/lib/oauth/redirect-uris'
 
 const ABILITIES = [
 	'Read and change your interests, takes and notes',
@@ -10,6 +9,31 @@ const ABILITIES = [
 	'Save what you are working on (project, packages, topics) for 30 days',
 	'Read your recent episodes and their sources',
 ] as const
+
+function Identity({ request }: { request: AuthorizeRequest }) {
+	if (request.clientKind === 'metadata_document') {
+		return (
+			<>
+				<h1 className="text-title font-semibold text-balance">Connect {request.clientName}?</h1>
+				<p className="text-lg leading-8 text-pretty text-muted">
+					{request.clientName}, published by{' '}
+					<span className="font-mono text-fg">{new URL(request.clientId).host}</span>, wants to read
+					and update your Diffcast interests, schedule and work context, and read your episodes.
+				</p>
+			</>
+		)
+	}
+	return (
+		<>
+			<h1 className="text-title font-semibold text-balance">Connect an agent?</h1>
+			<p className="text-lg leading-8 text-pretty text-muted">
+				An agent that calls itself <span className="text-fg">“{request.clientName}”</span> wants to
+				read and update your Diffcast interests, schedule and work context, and read your episodes.
+				Diffcast cannot confirm that name, so check where it sends you back to.
+			</p>
+		</>
+	)
+}
 
 export function ConsentView({
 	request,
@@ -22,17 +46,20 @@ export function ConsentView({
 	query: string
 	decide: (form: FormData) => Promise<void>
 }) {
-	const loopback = isLoopbackRedirect(request.redirectUri)
-	const host = redirectHost(request.redirectUri)
-	const verifiedDomain = isClientIdUrl(request.clientId) ? new URL(request.clientId).host : null
+	const local = isAppOrLoopbackRedirect(request.redirectUri)
 	return (
 		<div className="space-y-6">
 			<Wordmark className="text-sm" />
 			<div className="space-y-3">
-				<h1 className="text-title font-semibold text-balance">Connect {request.clientName}?</h1>
-				<p className="text-lg leading-8 text-pretty text-muted">
-					{request.clientName} wants to read and update your Diffcast interests, schedule and work
-					context, and read your episodes.
+				<Identity request={request} />
+			</div>
+			<div className="card space-y-1 border-edge">
+				<p className="font-mono text-xs text-muted">After you choose, you go back to</p>
+				<p className="font-mono text-xl font-semibold break-all">
+					{redirectHost(request.redirectUri)}
+				</p>
+				<p className="text-sm text-pretty text-muted">
+					Only allow this if that is the agent you are connecting right now.
 				</p>
 			</div>
 			<ul className="card space-y-2">
@@ -51,23 +78,11 @@ export function ConsentView({
 					It cannot see billing, your feed link or your email.
 				</li>
 			</ul>
-			<dl className="space-y-2 text-sm">
-				<div className="flex flex-wrap gap-x-2">
-					<dt className="text-muted">Signed in as</dt>
-					<dd>{email ?? 'your Diffcast account'}</dd>
-				</div>
-				<div className="flex flex-wrap gap-x-2">
-					<dt className="text-muted">After you choose, you go back to</dt>
-					<dd className="font-mono">{host}</dd>
-				</div>
-				{verifiedDomain && (
-					<div className="flex flex-wrap gap-x-2">
-						<dt className="text-muted">Agent identity published by</dt>
-						<dd className="font-mono">{verifiedDomain}</dd>
-					</div>
-				)}
-			</dl>
-			{loopback && (
+			<p className="text-sm">
+				<span className="text-muted">Signed in as </span>
+				{email ?? 'your Diffcast account'}
+			</p>
+			{local && (
 				<p role="note" className="card border-warn-line bg-warn-soft text-sm text-pretty">
 					This agent runs on your own computer. Any program on it could ask in its name, so only
 					allow this if you just started connecting an agent yourself.

@@ -11,6 +11,7 @@ export interface OAuthClient {
 export interface AuthorizeRequest {
 	clientId: string
 	clientName: string
+	clientKind: OAuthClient['kind']
 	redirectUri: string
 	state: string | null
 	codeChallenge: string
@@ -93,6 +94,7 @@ export function checkAuthorizeRequest(
 		request: {
 			clientId: client.id,
 			clientName: client.name,
+			clientKind: client.kind,
 			redirectUri,
 			state,
 			codeChallenge: challenge,

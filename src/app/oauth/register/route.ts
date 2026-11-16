@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
 	registrations.add(ip)
 	const json = await readJson(request)
 	if (!json.ok) return oauthError('invalid_client_metadata', 'Send a JSON body.')
-	const parsed = parseClientMetadata(json.body, { requireName: false })
+	const parsed = parseClientMetadata(json.body, { requireName: false, allowAppCallbacks: true })
 	if (!parsed.ok) return oauthError(parsed.error, parsed.description)
 	const clientId = `dc_${randomUUID()}`
 	await addRegisteredClient(clientId, parsed.client.name, parsed.client.redirectUris)

@@ -1,4 +1,4 @@
-import { isAllowedRedirectUri, MAX_REDIRECT_URIS } from './redirect-uris'
+import { isAllowedRedirectUri, isAppCallback, MAX_REDIRECT_URIS } from './redirect-uris'
 
 export const MAX_CLIENT_NAME = 200
 export const DEFAULT_CLIENT_NAME = 'An unnamed agent'
@@ -23,7 +23,7 @@ function stringArray(value: unknown): string[] | null {
 
 export function parseClientMetadata(
 	body: unknown,
-	{ requireName }: { requireName: boolean }
+	{ requireName, allowAppCallbacks }: { requireName: boolean; allowAppCallbacks: boolean }
 ): MetadataResult {
 	if (typeof body !== 'object' || body === null || Array.isArray(body)) {
 		return invalid('Send a JSON object.')
@@ -37,7 +37,9 @@ export function parseClientMetadata(
 			description: `redirect_uris must list 1 to ${MAX_REDIRECT_URIS} uris.`,
 		}
 	}
-	const badUri = redirectUris.find((uri) => !isAllowedRedirectUri(uri))
+	const badUri = redirectUris.find(
+		(uri) => !isAllowedRedirectUri(uri) && !(allowAppCallbacks && isAppCallback(uri))
+	)
 	if (badUri !== undefined) {
 		return {
 			ok: false,
@@ -88,6 +90,7 @@ export function isClientIdUrl(value: string): boolean {
 		const url = new URL(value)
 		return (
 			url.protocol === 'https:' &&
+			url.port === '' &&
 			url.pathname !== '/' &&
 			!url.hash &&
 			!url.username &&
@@ -109,7 +112,7 @@ export function parseMetadataDocument(clientId: string, body: unknown): Metadata
 	if ('client_secret' in record || 'client_secret_expires_at' in record) {
 		return invalid('Metadata documents must not carry a client secret.')
 	}
-	return parseClientMetadata(body, { requireName: true })
+	return parseClientMetadata(body, { requireName: true, allowAppCallbacks: false })
 }
 
 const MIN_CACHE_SECONDS = 5 * 60

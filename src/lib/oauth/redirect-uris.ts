@@ -24,8 +24,20 @@ export function isAllowedRedirectUri(uri: string): boolean {
 	return url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)
 }
 
+export const APP_CALLBACKS: Readonly<Record<string, string>> = {
+	'cursor://anysphere.cursor-mcp/oauth/callback': 'the Cursor app on this computer',
+}
+
+export function isAppCallback(uri: string): boolean {
+	return Object.hasOwn(APP_CALLBACKS, uri)
+}
+
+export function isAppOrLoopbackRedirect(uri: string): boolean {
+	return isAppCallback(uri) || isLoopbackRedirect(uri)
+}
+
 export function redirectHost(uri: string): string {
-	return new URL(uri).host
+	return APP_CALLBACKS[uri] ?? new URL(uri).host
 }
 
 export function withQuery(uri: string, params: Record<string, string | null>): string {

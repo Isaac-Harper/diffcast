@@ -17,7 +17,12 @@ import {
 } from './client-metadata'
 import { isPublicAddress } from './fetch-metadata-document'
 import { authorizationServerMetadata, protectedResourceMetadata, sameResource } from './metadata'
-import { isAllowedRedirectUri } from './redirect-uris'
+import {
+	isAllowedRedirectUri,
+	isAppOrLoopbackRedirect,
+	redirectHost,
+	withQuery,
+} from './redirect-uris'
 import { s256Challenge, verifyPkce } from './secrets'
 
 const ORIGIN = 'https://diffcast.fm'
@@ -115,11 +120,14 @@ describe('client registration', () => {
 					grant_types: ['authorization_code', 'refresh_token'],
 					response_types: ['code'],
 				},
-				{ requireName: false }
+				{ requireName: false, allowAppCallbacks: true }
 			)
 		).toEqual({ ok: true, client: { name: 'Cursor', redirectUris: ['http://127.0.0.1:4000/cb'] } })
 		expect(
-			parseClientMetadata({ redirect_uris: ['https://x.example/cb'] }, { requireName: false })
+			parseClientMetadata(
+				{ redirect_uris: ['https://x.example/cb'] },
+				{ requireName: false, allowAppCallbacks: true }
+			)
 		).toMatchObject({ ok: true, client: { name: 'An unnamed agent' } })
 	})
 
@@ -142,7 +150,10 @@ describe('client registration', () => {
 			{ redirect_uris: ['https://x.example/cb'], client_name: 7 },
 		]
 		for (const body of cases) {
-			expect(parseClientMetadata(body, { requireName: false }).ok, JSON.stringify(body)).toBe(false)
+			expect(
+				parseClientMetadata(body, { requireName: false, allowAppCallbacks: true }).ok,
+				JSON.stringify(body)
+			).toBe(false)
 		}
 	})
 })
@@ -195,12 +206,78 @@ describe('client id metadata documents', () => {
 			'fd00::1',
 			'fe80::1',
 			'::ffff:127.0.0.1',
+			'::ffff:7f00:1',
+			'::127.0.0.1',
+			'::7f00:1',
+			'::a00:1',
+			'64:ff9b::a00:1',
+			'64:ff9b:1::a00:1',
+			'fec0::1',
+			'2001:db8::1',
+			'2002:7f00:1::1',
+			'4000::1',
 		]) {
 			expect(isPublicAddress(address), address).toBe(false)
 		}
 		expect(isPublicAddress('93.184.216.34')).toBe(true)
 		expect(isPublicAddress('2606:4700:4700::1111')).toBe(true)
+		expect(isPublicAddress('2a00:1450:4001::200e')).toBe(true)
 		expect(isPublicAddress('not-an-ip')).toBe(false)
+	})
+
+	it('accepts only port 443 client id urls', () => {
+		expect(isClientIdUrl('https://client.example.com:443/c.json')).toBe(true)
+		expect(isClientIdUrl('https://client.example.com:8443/c.json')).toBe(false)
+	})
+})
+
+describe('cursor app callback', () => {
+	const cursor = 'cursor://anysphere.cursor-mcp/oauth/callback'
+
+	it('is allowed exactly, and only for registered clients', () => {
+		const body = {
+			client_name: 'Cursor',
+			redirect_uris: [
+				cursor,
+				'https://www.cursor.com/agents/mcp/oauth/callback',
+				'http://localhost:8787/callback',
+			],
+		}
+		expect(
+			parseClientMetadata(body, { requireName: false, allowAppCallbacks: true })
+		).toMatchObject({ ok: true, client: { redirectUris: body.redirect_uris } })
+		expect(parseClientMetadata(body, { requireName: false, allowAppCallbacks: false }).ok).toBe(
+			false
+		)
+		for (const near of [
+			'cursor://anysphere.cursor-mcp/oauth/callback/',
+			'cursor://anysphere.cursor-mcp/oauth/other',
+			'cursor://evil.example/oauth/callback',
+			'vscode://anysphere.cursor-mcp/oauth/callback',
+		]) {
+			expect(
+				parseClientMetadata(
+					{ redirect_uris: [near] },
+					{ requireName: false, allowAppCallbacks: true }
+				).ok,
+				near
+			).toBe(false)
+		}
+		expect(
+			parseMetadataDocument('https://c.example/c.json', {
+				client_id: 'https://c.example/c.json',
+				client_name: 'Not Cursor',
+				redirect_uris: [cursor],
+			}).ok
+		).toBe(false)
+	})
+
+	it('redirects back to the app with the code', () => {
+		const url = new URL(withQuery(cursor, { code: 'abc', state: 's', iss: 'https://diffcast.fm' }))
+		expect(`${url.protocol}//${url.host}${url.pathname}`).toBe(cursor)
+		expect(url.searchParams.get('code')).toBe('abc')
+		expect(redirectHost(cursor)).toBe('the Cursor app on this computer')
+		expect(isAppOrLoopbackRedirect(cursor)).toBe(true)
 	})
 })
 
@@ -211,6 +288,7 @@ describe('authorization requests', () => {
 			request: {
 				clientId: 'dc_client',
 				clientName: 'Claude Code',
+				clientKind: 'registered',
 				redirectUri: 'http://localhost:51234/callback',
 				state: 'xyz',
 				codeChallenge: CHALLENGE,
