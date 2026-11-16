@@ -25,9 +25,9 @@ if (!url) throw new Error('DATABASE_URL is not set')
 const secret = process.env.DIFFCAST_SESSION_SECRET
 if (!secret || secret.length < 32) throw new Error('DIFFCAST_SESSION_SECRET is not set')
 
-function sessionCookie(listenerId) {
+function sessionCookie(listenerId, epoch) {
 	const key = createHmac('sha256', secret).update('diffcast-listener-session').digest('base64url')
-	const payload = `${listenerId}.${Date.now() + SESSION_SECONDS * 1000}`
+	const payload = `${listenerId}.${epoch}.${Date.now() + SESSION_SECONDS * 1000}`
 	return `${payload}.${createHmac('sha256', key).update(payload).digest('base64url')}`
 }
 
@@ -40,15 +40,15 @@ try {
 		if (existing.rows.length > 0) throw new Error(`${EMAIL} already exists; run delete first`)
 		const created = await client.query(
 			`INSERT INTO listeners (name, email, timezone, comped, active) VALUES ($1, $2, 'UTC', true, true)
-			RETURNING id`,
+			RETURNING id, session_epoch`,
 			[NAME, EMAIL]
 		)
-		const id = created.rows[0].id
+		const { id, session_epoch: epoch } = created.rows[0]
 		await client.query(
 			`INSERT INTO interests (listener_id, topic, sort) VALUES ($1, 'Developer tools and web development', 0)`,
 			[id]
 		)
-		await writeFile(cookieFile, sessionCookie(id), { mode: 0o600 })
+		await writeFile(cookieFile, sessionCookie(id, epoch), { mode: 0o600 })
 		console.warn(`created listener ${id} (${NAME}); session cookie written to ${cookieFile}`)
 	} else {
 		const deleted = await client.query('DELETE FROM listeners WHERE email = $1 RETURNING id', [

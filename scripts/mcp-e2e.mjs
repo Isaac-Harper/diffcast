@@ -175,23 +175,64 @@ const reused = await tokenRequest({
 	redirect_uri: REDIRECT,
 })
 check(reused.body.error === 'invalid_grant', 'a reused code is refused')
+check(
+	(await mcpStatus(exchanged.body.access_token)) === 401,
+	'the reuse revoked the grant the code produced'
+)
 
-step('Refresh (the reuse above revoked the first grant, so authorize again)')
-const second = await fetch(authorizeUrl, { headers: { cookie: sessionCookie } })
-const secondDecision = await fetch(authorizeUrl, {
-	method: 'POST',
-	headers: { cookie: sessionCookie, origin: new URL(base).origin },
-	body: consentFields(await second.text()),
-	redirect: 'manual',
-})
-const secondCode = new URL(
-	(
-		secondDecision.headers.get('location') ??
-		secondDecision.headers.get('x-action-redirect') ??
-		''
-	).split(';')[0],
-	base
-).searchParams.get('code')
+async function authorizeAgain() {
+	const page = await fetch(authorizeUrl, { headers: { cookie: sessionCookie } })
+	const allowed = await fetch(authorizeUrl, {
+		method: 'POST',
+		headers: { cookie: sessionCookie, origin: new URL(base).origin },
+		body: consentFields(await page.text()),
+		redirect: 'manual',
+	})
+	const target = allowed.headers.get('location') ?? allowed.headers.get('x-action-redirect') ?? ''
+	return new URL(target.split(';')[0], base).searchParams.get('code')
+}
+
+async function mcpStatus(accessToken) {
+	const response = await fetch(`${base}/api/mcp`, {
+		method: 'POST',
+		headers: {
+			authorization: `Bearer ${accessToken}`,
+			'content-type': 'application/json',
+			accept: 'application/json, text/event-stream',
+		},
+		body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+	})
+	await response.arrayBuffer()
+	return response.status
+}
+
+step('Concurrent double exchange of one code')
+const racedCode = await authorizeAgain()
+const raced = await Promise.all(
+	Array.from({ length: 4 }, () =>
+		tokenRequest({
+			grant_type: 'authorization_code',
+			code: racedCode,
+			code_verifier: verifier,
+			client_id: clientId,
+			redirect_uri: REDIRECT,
+			resource: resourceMetadata.resource,
+		})
+	)
+)
+const winners = raced.filter((result) => result.status === 200)
+check(winners.length === 1, `exactly one of 4 concurrent exchanges wins (${winners.length})`)
+check(
+	raced.filter((result) => result.body.error === 'invalid_grant').length === 3,
+	'the other 3 are refused as reused'
+)
+check(
+	(await mcpStatus(winners[0].body.access_token)) === 401,
+	'the replays revoked the winning grant, so no live grant survives the race'
+)
+
+step('Refresh on a fresh authorization')
+const secondCode = await authorizeAgain()
 const tokens = await tokenRequest({
 	grant_type: 'authorization_code',
 	code: secondCode,
@@ -243,15 +284,9 @@ const revoked = await fetch(server.revocation_endpoint, {
 	}),
 })
 check(revoked.status === 200, 'revocation answers 200')
-const after = await fetch(`${base}/api/mcp`, {
-	method: 'POST',
-	headers: {
-		authorization: `Bearer ${refreshed.body.access_token}`,
-		'content-type': 'application/json',
-		accept: 'application/json, text/event-stream',
-	},
-	body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
-})
-check(after.status === 401, 'the access token stops working after revocation')
+check(
+	(await mcpStatus(refreshed.body.access_token)) === 401,
+	'the access token stops working after revocation'
+)
 
 console.warn('\nAll steps passed.')
