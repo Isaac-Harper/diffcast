@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DueListener } from '../../../shared/contract.ts'
-import { buildBrief, weekdayName, windowStart } from './brief.ts'
+import { buildBrief, buildWriterInput, weekdayName, windowStart } from './brief.ts'
+import type { SavedResearchNotes } from './research-notes.ts'
 
 describe('windowStart', () => {
 	it('starts at the last episode, or yesterday for a first episode', () => {
@@ -100,5 +101,54 @@ describe('buildBrief', () => {
 		expect(brief).toContain('New research covers since the morning of 2026-11-20.')
 		expect(brief).toContain('the short week ahead, about 4 minutes')
 		expect(brief).toContain('about 600 words (480 to 690)')
+	})
+})
+
+function notes(kinds: SavedResearchNotes['stories'][number]['kind'][]): SavedResearchNotes {
+	return {
+		stories: kinds.map((kind, index) => ({
+			headline: `Story ${index}`,
+			whatHappened: 'It happened.',
+			whyItMatters: 'It matters.',
+			dates: '2026-11-21',
+			interests: ['Open source'],
+			packages: [],
+			kind,
+			challenges: null,
+			sources: [{ title: 'Source', url: `https://example.com/${index}` }],
+		})),
+		quietDay: '',
+		fetched: [],
+	}
+}
+
+describe('buildWriterInput', () => {
+	it('opens with one target word count and turn count for the stories in the notes', () => {
+		const input = buildWriterInput(base, notes(['news', 'challenge', 'watch', 'wildcard']))
+		expect(input.startsWith('## Length target')).toBe(true)
+		expect(input).toContain(
+			'The notes hold 3 stories besides any wildcard. If you cover them all, write about 1500 words in total, in about 38 turns'
+		)
+		expect(input).toContain('The accepted range is 1200 to 1725.')
+		expect(input).toContain('Aim for 1500 words, not the minimum')
+	})
+
+	it('targets the short week ahead and a one story day', () => {
+		const weekAhead = buildWriterInput(
+			{ ...base, date: '2026-11-22', format: 'week_ahead' },
+			notes(['watch', 'watch', 'watch'])
+		)
+		expect(weekAhead).toContain('write about 600 words in total, in about 15 turns')
+		expect(weekAhead).toContain('a script under 480 words is rejected')
+		expect(
+			weekAhead
+				.trimEnd()
+				.endsWith(
+					'Write at least 15 turns of about 40 words each, about 600 words in total. Fewer than 480 words is rejected; first drafts land short, so plan the 15 turns across the segments before writing them.'
+				)
+		).toBe(true)
+		const oneStory = buildWriterInput(base, notes(['news']))
+		expect(oneStory).toContain('The notes hold 1 story besides any wildcard.')
+		expect(oneStory).toContain('write about 750 words in total, in about 19 turns')
 	})
 })
