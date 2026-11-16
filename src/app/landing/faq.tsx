@@ -52,9 +52,9 @@ const QUESTIONS = [
 	},
 	{
 		id: 'agent',
-		question: 'Does the MCP server exist yet?',
+		question: 'How does the agent connection work?',
 		answer:
-			'Not yet; it is planned. Until then you change your interests, stack and days in your account, or on the listener page linked from every episode.',
+			'Diffcast runs a remote MCP server at diffcast.fm/api/mcp. Add that URL to Claude Code, Cursor or claude.ai and approve it once in your browser. Your agent can then save what you are working on (a project alias, its packages and topics, kept 30 days), read and change your interests and days, and read your episodes. Project names are never spoken. Disconnect it any time from your account. Setup steps are on diffcast.fm/agents.',
 	},
 	{
 		id: 'cancel',

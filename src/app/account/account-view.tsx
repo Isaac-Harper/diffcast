@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { AgentSetup } from '@/app/components/agent-setup'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
 import { SubmitButton } from '@/app/components/submit-button'
 import { formatInstant } from '@/lib/format'
@@ -5,9 +7,15 @@ import { isServed, PLAN_LABELS, planOf } from '@/lib/served'
 import { stackToLines } from '@/lib/stack-parser'
 import type { StoredInterest } from '@/lib/store/interests'
 import type { Listener } from '@/lib/store/listeners'
+import type { GrantRow } from '@/lib/store/oauth'
 import { COMMON_TIME_ZONES } from '@/lib/time'
 import { signOut } from '../signin/actions'
-import { openBillingPortal, saveAccountDays, saveAccountInterests } from './actions'
+import {
+	disconnectAgent,
+	openBillingPortal,
+	saveAccountDays,
+	saveAccountInterests,
+} from './actions'
 import { NewFeedLink, ProfileForm } from './forms'
 
 function planLine(listener: Listener): string {
@@ -23,9 +31,13 @@ function planLine(listener: Listener): string {
 export function AccountView({
 	listener,
 	interests,
+	grants,
+	origin,
 }: {
 	listener: Listener
 	interests: readonly StoredInterest[]
+	grants: readonly GrantRow[]
+	origin: string
 }) {
 	return (
 		<div className="space-y-6">
@@ -73,6 +85,52 @@ export function AccountView({
 					stackLines={stackToLines(listener.stack)}
 					timeZones={COMMON_TIME_ZONES}
 				/>
+			</section>
+
+			<section className="card space-y-3" aria-labelledby="agents-heading">
+				<h2 id="agents-heading" className="text-lg font-semibold">
+					Connected agents
+				</h2>
+				{grants.length === 0 ? (
+					<p className="text-sm text-muted">No agent is connected.</p>
+				) : (
+					<ul className="divide-y divide-line">
+						{grants.map((grant) => (
+							<li
+								key={grant.id}
+								className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0"
+							>
+								<div className="min-w-0 flex-1">
+									<p className="font-medium">{grant.clientName}</p>
+									<p className="text-sm text-muted">
+										Connected {formatInstant(grant.createdAt)} · last used{' '}
+										{formatInstant(grant.lastUsedAt)}
+									</p>
+								</div>
+								<form action={disconnectAgent}>
+									<input type="hidden" name="grantId" value={grant.id} />
+									<SubmitButton variant="destructive">
+										Disconnect<span className="sr-only"> {grant.clientName}</span>
+									</SubmitButton>
+								</form>
+							</li>
+						))}
+					</ul>
+				)}
+			</section>
+
+			<section className="card space-y-3" aria-labelledby="connect-heading">
+				<h2 id="connect-heading" className="text-lg font-semibold">
+					Connect your agent
+				</h2>
+				<p className="text-sm text-pretty text-muted">
+					Your coding agent can tell Diffcast what you are working on, and change your interests and
+					days for you. Add this server to it and sign in once.{' '}
+					<Link href="/agents" className="text-fg">
+						What it can do
+					</Link>
+				</p>
+				<AgentSetup origin={origin} />
 			</section>
 
 			<section className="card space-y-3" aria-labelledby="feed-heading">

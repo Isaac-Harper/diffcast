@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { SiteFooter, SiteHeader } from '@/app/components/site-chrome'
+import { requestOrigin } from '@/lib/http'
 import { requireListener } from '@/lib/listener-auth'
 import { listInterests } from '@/lib/store/interests'
+import { listGrants } from '@/lib/store/oauth'
 import { getListener } from '@/lib/store/listeners'
 import { AccountView } from './account-view'
 
@@ -14,12 +17,21 @@ export const metadata: Metadata = {
 
 async function Account() {
 	const listenerId = await requireListener()
-	const [listener, interests] = await Promise.all([
+	const [listener, interests, grants, headerList] = await Promise.all([
 		getListener(listenerId),
 		listInterests(listenerId),
+		listGrants(listenerId),
+		headers(),
 	])
 	if (!listener) redirect('/signin')
-	return <AccountView listener={listener} interests={interests} />
+	return (
+		<AccountView
+			listener={listener}
+			interests={interests}
+			grants={grants}
+			origin={requestOrigin(headerList)}
+		/>
+	)
 }
 
 export default function AccountPage() {

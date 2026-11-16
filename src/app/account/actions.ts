@@ -6,12 +6,13 @@ import { redirect } from 'next/navigation'
 import { portalConfigurationId, stripe } from '@/lib/billing/stripe'
 import { feedUrl, hashFeedToken, listenerPageUrl, newFeedToken } from '@/lib/feed-tokens'
 import type { FormResult } from '@/lib/form-result'
-import { parseDaysForm, parseProfileForm } from '@/lib/forms'
+import { parseDaysForm, parseProfileForm, wholeId } from '@/lib/forms'
 import { requestOrigin } from '@/lib/http'
 import { parseInterestsEditor } from '@/lib/interests-form'
 import { requireListener } from '@/lib/listener-auth'
 import { addFeedToken, revokeListenerFeedTokens } from '@/lib/store/feed-tokens'
 import { saveInterests } from '@/lib/store/interests'
+import { revokeListenerGrant } from '@/lib/store/oauth'
 import { getListener, setListenerDays, setListenerProfile } from '@/lib/store/listeners'
 
 export type FeedLinkResult =
@@ -48,6 +49,16 @@ export async function saveAccountProfile(
 	await setListenerProfile(listenerId, parsed.input)
 	refresh()
 	return { status: 'saved', message: 'Saved.' }
+}
+
+export async function disconnectAgent(form: FormData): Promise<void> {
+	const listenerId = await requireListener()
+	const grantId = wholeId(form.get('grantId'))
+	if (grantId === null) throw new Error('Disconnect posted without a grant id')
+	if (!(await revokeListenerGrant(listenerId, grantId))) {
+		throw new Error(`Grant ${grantId} does not belong to listener ${listenerId}`)
+	}
+	refresh()
 }
 
 export async function openBillingPortal(): Promise<void> {

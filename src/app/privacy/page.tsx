@@ -19,6 +19,7 @@ const SECTIONS = [
 			'What you tell us you want to hear about: your interests, any takes you add to them, and notes about what you work on.',
 			'The stack you give us. If you paste a file such as a package.json when you sign up, we keep that text with your signup and turn it into a list of package names for your episodes.',
 			'Your feedback: whether you listened, whether an episode was useful and any notes you write.',
+			'Work context, if you connect a coding agent: the project alias, package names, topics and one line summary your agent sends. Each entry is kept for 30 days from its last update and then dropped; your agent or a request to us can delete it sooner. We also keep which agents you connected and when they were last used, and only hashes of their access tokens.',
 			'Billing references from Stripe: your Stripe customer and subscription ids, the subscription status and when the current period ends. We never see or store your card number.',
 			'Basic delivery records for your private feed, such as when a podcast app last fetched it and which episodes it downloaded.',
 		],
@@ -28,7 +29,7 @@ const SECTIONS = [
 		paragraphs: [
 			'Episodes are scripted from public sources only: reporting, announcements, release notes, changelogs and security advisories.',
 			'Your interests and takes shape which stories are chosen and how they are argued. A take may be referred to in your own episode, which only you receive.',
-			'Your private project names and client names are never spoken in an episode and never written into its title or show notes.',
+			'Your private project names and client names are never spoken in an episode and never written into its title or show notes. That includes the project names and summaries your agent sends as work context: the writing service sees them only as "private project 1" and similar, and a script that names one fails a check and is rewritten.',
 			'We never ask for source code.',
 		],
 	},
@@ -42,7 +43,7 @@ const SECTIONS = [
 	{
 		heading: 'Other companies involved',
 		paragraphs: [
-			'Diffcast runs on hosted infrastructure, and episodes are written and voiced with third party AI services. To write an episode, the writing service receives your interests, your takes, your package list and any notes you gave us about what you work on. To voice it, the speech service receives the finished script, which is built from public news.',
+			'Diffcast runs on hosted infrastructure, and episodes are written and voiced with third party AI services. To write an episode, the writing service receives your interests, your takes, your package list, any notes you gave us about what you work on, and the packages and topics from your work context, with project names replaced by labels. To voice it, the speech service receives the finished script, which is built from public news.',
 			'We have not verified how long those providers retain what they process, so we make no promise about it. This is why private names are kept out of scripts.',
 			'Payments are handled by Stripe. Stripe holds your name, email, card or other payment details, billing address and your invoice and payment history, under its own privacy policy. We see only the references listed above and the amounts charged.',
 			'Email is sent through Resend, which receives your email address and the message: your welcome email, sign in links and subscription notices.',

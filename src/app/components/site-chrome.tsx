@@ -55,6 +55,9 @@ export function SiteFooter() {
 					<p className="text-muted">{SITE_TAGLINE}</p>
 				</div>
 				<nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
+					<Link href="/agents" className="text-muted no-underline hover:text-fg">
+						Agents
+					</Link>
 					<Link href="/terms" className="text-muted no-underline hover:text-fg">
 						Terms
 					</Link>
