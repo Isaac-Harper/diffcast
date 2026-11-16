@@ -4,12 +4,13 @@ import { Field, FieldLabel } from '@ui-sdk/react/field'
 import { Textarea } from '@ui-sdk/react/textarea'
 import { useActionState } from 'react'
 import { ChoiceGroup } from '@/app/components/choice-group'
+import { DaysField } from '@/app/components/days-field'
 import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
 import { InterestsEditor } from '@/app/components/interests-editor'
 import type { InterestRow } from '@/lib/interests'
 import type { Listened, Useful, WouldPay } from '@/lib/episode-types'
-import { saveMyInterests, submitFeedback, submitSurvey } from './actions'
+import { saveMyDays, saveMyInterests, submitFeedback, submitSurvey } from './actions'
 import type { FormResult } from './actions'
 
 const IDLE: FormResult = { status: 'idle', message: '' }
@@ -73,7 +74,7 @@ export function SurveyForm({
 			<input type="hidden" name="token" value={token} />
 			<ChoiceGroup
 				name="wouldPay"
-				label="Would you pay $15 a month"
+				label="Would you pay $25 a month"
 				labelHidden
 				options={WOULD_PAY_OPTIONS}
 				defaultValue={current?.wouldPay ?? null}
@@ -156,6 +157,23 @@ export function InterestsForm({
 			<InterestsEditor initial={interests} />
 			<div className="flex flex-wrap items-center gap-3">
 				<SubmitButton variant="solid">Save interests</SubmitButton>
+				<FormStatus status={result.status} message={result.message} />
+			</div>
+		</form>
+	)
+}
+
+export function DaysForm({ token, days }: { token: string; days: readonly number[] }) {
+	const [result, action] = useActionState(saveMyDays, IDLE)
+	return (
+		<form action={action} className="space-y-4">
+			<input type="hidden" name="token" value={token} />
+			<DaysField
+				defaultDays={days}
+				description="Weekdays are the daily news. Saturday is the week in your corner of tech, Sunday a short look at the week ahead. After a day off, the next episode covers everything since your last one."
+			/>
+			<div className="flex flex-wrap items-center gap-3">
+				<SubmitButton variant="solid">Save days</SubmitButton>
 				<FormStatus status={result.status} message={result.message} />
 			</div>
 		</form>

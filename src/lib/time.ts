@@ -81,15 +81,8 @@ export function isDay(value: string): boolean {
 	return addDays(value, 0) === value
 }
 
-export function weekdaysFrom(start: string, count: number): string[] {
-	const dates: string[] = []
-	let date = start
-	while (dates.length < count) {
-		const weekday = weekdayOf(date)
-		if (weekday >= 1 && weekday <= 5) dates.push(date)
-		date = addDays(date, 1)
-	}
-	return dates
+export function calendarDaysFrom(start: string, count: number): string[] {
+	return Array.from({ length: count }, (_, index) => addDays(start, index))
 }
 
 export const COMMON_TIME_ZONES = [

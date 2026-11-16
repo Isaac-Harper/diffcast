@@ -1,7 +1,8 @@
 import type { Listened, Verdict, WouldPay } from './episode-types'
-import { isDay, weekdaysFrom, zonedInstant } from './time'
+import { formatForDate, isoWeekdayOf } from './schedule'
+import { calendarDaysFrom, isDay, zonedInstant } from './time'
 
-export const DEFAULT_GATE_DAYS = 10
+export const DEFAULT_GATE_DAYS = 14
 export const STORY_THRESHOLD = 3
 export const LISTEN_SHARE = 0.6
 export const STORY_SHARE = 0.8
@@ -27,7 +28,7 @@ export function gateWindow(
 	if (!Number.isInteger(days) || days < 1 || days > 60) {
 		throw new Error(`DIFFCAST_GATE_DAYS must be a whole number from 1 to 60, got ${rawDays}`)
 	}
-	return { start, days, dates: weekdaysFrom(start, days) }
+	return { start, days, dates: calendarDaysFrom(start, days) }
 }
 
 export interface GateEpisode {
@@ -44,6 +45,7 @@ export interface GateListener {
 	id: number
 	name: string
 	timezone: string
+	days: number[]
 	wouldPay: WouldPay | null
 	episodes: GateEpisode[]
 }
@@ -51,11 +53,15 @@ export interface GateListener {
 export interface ListenerGate {
 	id: number
 	name: string
+	days: number[]
+	scheduled: number
 	expected: number
 	delivered: number
 	downloaded: number
 	listened: number
+	listenNeeded: number
 	storyDays: number
+	storyNeeded: number
 	wouldPay: WouldPay | null
 	meetsListen: boolean
 	meetsStories: boolean
@@ -76,8 +82,20 @@ export function windowEpisodes(episodes: GateEpisode[], window: GateWindow): Gat
 	)
 }
 
-export function expectedEpisodes(window: GateWindow, today: string): number {
-	return window.dates.filter((date) => date <= today).length
+export function scheduledDates(window: GateWindow, days: readonly number[]): string[] {
+	return window.dates.filter((date) => days.includes(isoWeekdayOf(date)))
+}
+
+export function expectedEpisodes(
+	window: GateWindow,
+	days: readonly number[],
+	today: string
+): number {
+	return scheduledDates(window, days).filter((date) => date <= today).length
+}
+
+export function isDaily(date: string): boolean {
+	return formatForDate(date) === 'daily'
 }
 
 export function isOnTime(episode: GateEpisode, timeZone: string): boolean {
@@ -89,22 +107,31 @@ export function listenerGate(
 	window: GateWindow,
 	today: string
 ): ListenerGate {
+	const scheduled = scheduledDates(window, listener.days)
 	const delivered = windowEpisodes(listener.episodes, window)
 	const listened = delivered.filter(
 		(episode) => episode.listened === 'yes' || episode.listened === 'partly'
 	).length
-	const storyDays = delivered.filter((episode) => episode.storyCount >= STORY_THRESHOLD).length
+	const storyDays = delivered.filter(
+		(episode) => isDaily(episode.publishedOn) && episode.storyCount >= STORY_THRESHOLD
+	).length
+	const listenNeeded = listenTarget(scheduled.length)
+	const storyNeeded = storyTarget(scheduled.filter(isDaily).length)
 	return {
 		id: listener.id,
 		name: listener.name,
-		expected: expectedEpisodes(window, today),
+		days: listener.days,
+		scheduled: scheduled.length,
+		expected: expectedEpisodes(window, listener.days, today),
 		delivered: delivered.length,
 		downloaded: delivered.filter((episode) => episode.downloaded).length,
 		listened,
+		listenNeeded,
 		storyDays,
+		storyNeeded,
 		wouldPay: listener.wouldPay,
-		meetsListen: listened >= listenTarget(window.days),
-		meetsStories: storyDays >= storyTarget(window.days),
+		meetsListen: listened >= listenNeeded,
+		meetsStories: storyDays >= storyNeeded,
 	}
 }
 
@@ -154,9 +181,9 @@ export function onTimeRate(listeners: GateListener[], window: GateWindow): numbe
 export interface GateReport {
 	window: GateWindow
 	listeners: ListenerGate[]
-	listen: { count: number; needed: number; episodes: number; met: boolean }
+	listen: { count: number; needed: number; met: boolean }
 	pay: { count: number; needed: number; met: boolean }
-	stories: { count: number; of: number; days: number; met: boolean }
+	stories: { count: number; of: number; met: boolean }
 	errors: CheckCounts & { met: boolean }
 	cost: CostSummary
 	onTime: number | null
@@ -182,14 +209,12 @@ export function gateReport(
 		listen: {
 			count: listenCount,
 			needed: LISTENERS_NEEDED,
-			episodes: listenTarget(window.days),
 			met: listenCount >= LISTENERS_NEEDED,
 		},
 		pay: { count: payCount, needed: PAYERS_NEEDED, met: payCount >= PAYERS_NEEDED },
 		stories: {
 			count: storyCount,
 			of: rows.length,
-			days: storyTarget(window.days),
 			met: rows.length > 0 && storyCount === rows.length,
 		},
 		errors: { ...counts, met: meetsErrorLine(counts) },

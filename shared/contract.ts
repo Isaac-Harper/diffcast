@@ -8,6 +8,8 @@ export const SPEAKER_NAMES: Record<(typeof SPEAKERS)[number], string> = {
 
 export const SEGMENT_KINDS = ['news', 'stack', 'update', 'challenge', 'wildcard', 'watch'] as const
 
+export const EPISODE_FORMATS = ['daily', 'weekly_recap', 'week_ahead'] as const
+
 export const WORDS_PER_MINUTE = 150
 export const MAX_AUDIO_BYTES = 60 * 1024 * 1024
 
@@ -83,6 +85,8 @@ export const interestSchema = z.object({
 export const dueListenerSchema = z.object({
 	listenerId: z.number().int().positive(),
 	date: day,
+	format: z.enum(EPISODE_FORMATS),
+	since: day.nullable(),
 	timezone: z.string().min(1),
 	minutes: z.number().int().min(3).max(20),
 	stack: z.array(dependencySchema).max(500),
@@ -124,5 +128,6 @@ export type Turn = z.infer<typeof turnSchema>
 export type EpisodeScript = z.infer<typeof episodeScriptSchema>
 export type EpisodeMetrics = z.infer<typeof episodeMetricsSchema>
 export type DueListener = z.infer<typeof dueListenerSchema>
+export type EpisodeFormat = (typeof EPISODE_FORMATS)[number]
 export type EpisodeRequest = z.infer<typeof episodeRequestSchema>
 export type FailureRequest = z.infer<typeof failureRequestSchema>

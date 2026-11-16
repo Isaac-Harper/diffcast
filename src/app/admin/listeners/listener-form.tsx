@@ -12,11 +12,13 @@ import {
 } from '@ui-sdk/react/number-input'
 import { Textarea } from '@ui-sdk/react/textarea'
 import { useActionState, useState } from 'react'
+import { DaysField } from '@/app/components/days-field'
 import { FormStatus } from '@/app/components/form-status'
 import { SelectField } from '@/app/components/select-field'
 import { SubmitButton } from '@/app/components/submit-button'
 import { InterestsEditor } from '@/app/components/interests-editor'
 import type { InterestRow } from '@/lib/interests'
+import { ISO_WEEKDAYS } from '@/lib/schedule'
 import type { Listener } from '@/lib/store/listeners'
 import { previewStack, saveListener } from './actions'
 import type { PreviewResult, SaveResult } from './actions'
@@ -115,6 +117,10 @@ export function ListenerForm({
 					</NumberInput>
 				</Field>
 			</div>
+			<DaysField
+				defaultDays={listener?.days ?? ISO_WEEKDAYS}
+				description="Saturday is the week in review and Sunday the week ahead. Keep at least one day."
+			/>
 			<Field name="focus">
 				<FieldLabel>Focus (what they work on, in their words)</FieldLabel>
 				<Textarea rows={4} maxLength={2000} defaultValue={listener?.focus ?? initialFocus ?? ''} />

@@ -4,11 +4,17 @@ import type { GateCheck, GateListener } from '../gate'
 
 export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 	const listeners = (await sql`
-		SELECT l.id, l.name, l.timezone,
+		SELECT l.id, l.name, l.timezone, l.days,
 			(SELECT would_pay FROM surveys s WHERE s.listener_id = l.id
 				ORDER BY s.created_at DESC, s.id DESC LIMIT 1) AS would_pay
 		FROM listeners l WHERE l.active ORDER BY l.name
-	`) as { id: number; name: string; timezone: string; would_pay: WouldPay | null }[]
+	`) as {
+		id: number
+		name: string
+		timezone: string
+		days: number[]
+		would_pay: WouldPay | null
+	}[]
 	const episodes = (await sql`
 		SELECT e.listener_id, e.published_on::text, e.story_count,
 			coalesce(e.metrics->>'model', '') AS model,
@@ -33,6 +39,7 @@ export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 		id: listener.id,
 		name: listener.name,
 		timezone: listener.timezone,
+		days: listener.days,
 		wouldPay: listener.would_pay,
 		episodes: episodes
 			.filter((episode) => episode.listener_id === listener.id)

@@ -2,11 +2,12 @@
 import { act, render, screen } from '@testing-library/react'
 import { createAgent } from '@ui-sdk/react/agent'
 import { describe, expect, test, vi } from 'vitest'
-import { FeedbackForm, SurveyForm } from './forms'
+import { DaysForm, FeedbackForm, SurveyForm } from './forms'
 
 vi.mock('./actions', () => ({
 	submitSurvey: vi.fn(async () => ({ status: 'saved', message: 'Saved.' })),
 	submitFeedback: vi.fn(async () => ({ status: 'saved', message: 'Thanks.' })),
+	saveMyDays: vi.fn(async () => ({ status: 'saved', message: 'Days saved.' })),
 }))
 
 const agent = createAgent()
@@ -28,7 +29,7 @@ describe('SurveyForm', () => {
 			expect(entry.label, `${entry.component} ${entry.ref} has no name`).toBeTruthy()
 		}
 		const labels = components.map((entry) => entry.label)
-		for (const label of ['Would you pay $15 a month', 'Survey note']) {
+		for (const label of ['Would you pay $25 a month', 'Survey note']) {
 			expect(labels, `${label} is missing from the snapshot`).toContain(label)
 		}
 
@@ -36,7 +37,7 @@ describe('SurveyForm', () => {
 		await act(async () => {
 			result = await agent.act({
 				steps: [
-					{ ref: 'Would you pay $15 a month', action: 'setValue', args: ['maybe'] },
+					{ ref: 'Would you pay $25 a month', action: 'setValue', args: ['maybe'] },
 					{ ref: 'Survey note', action: 'setValue', args: ['Depends on the price'] },
 				],
 			})
@@ -90,5 +91,30 @@ describe('FeedbackForm', () => {
 			screen.getByLabelText<HTMLTextAreaElement>('Feedback note (Mon, Nov 16, 2026)').value
 		).toBe('Too many releases')
 		expect((document.querySelector('input[name="episodeId"]') as HTMLInputElement).value).toBe('7')
+	})
+})
+
+describe('DaysForm', () => {
+	test('an agent can find the days and change them, and the form posts each day', async () => {
+		render(<DaysForm token="abc" days={[1, 2, 3, 4, 5, 6, 7]} />)
+
+		const components = namedComponents()
+		for (const entry of components) {
+			expect(entry.label, `${entry.component} ${entry.ref} has no name`).toBeTruthy()
+		}
+		expect(components.map((entry) => entry.label)).toContain('Days')
+
+		let result: Awaited<ReturnType<typeof agent.act>> | undefined
+		await act(async () => {
+			result = await agent.act({ steps: [{ ref: 'Days', action: 'setValue', args: [['1', '3']] }] })
+		})
+		expect(result?.ok, result?.error?.message).toBe(true)
+		const form = document.querySelector('form')
+		if (!form) throw new Error('no form')
+		expect(new FormData(form).getAll('days')).toEqual(['1', '3'])
+		expect(screen.getByRole('checkbox', { name: 'Saturday' }).getAttribute('aria-checked')).toBe(
+			'false'
+		)
+		expect(screen.getByRole('button', { name: 'Save days' })).toBeTruthy()
 	})
 })

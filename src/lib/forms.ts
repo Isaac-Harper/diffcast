@@ -2,6 +2,7 @@ import { LISTENED, USEFUL, VERDICTS, WOULD_PAY } from './episode-types'
 import type { Listened, Useful, Verdict, WouldPay } from './episode-types'
 import { parseStack, STACK_FORMATS } from './stack-parser'
 import type { StackFormat } from './stack-parser'
+import { normalizeDays } from './schedule'
 import type { ListenerInput } from './store/listeners'
 import { isTimeZone } from './time'
 
@@ -28,6 +29,12 @@ export function stackFormat(form: FormData): StackFormat {
 	return oneOf(STACK_FORMATS, text(form, 'format', 40)) ?? 'auto'
 }
 
+export function parseDaysForm(form: FormData): Parsed<number[]> {
+	const days = normalizeDays(form.getAll('days'))
+	if (!days) return { ok: false, error: 'Pick at least one day.' }
+	return { ok: true, input: days }
+}
+
 export function parseListenerForm(form: FormData): Parsed<ListenerInput> {
 	const name = text(form, 'name', 120)
 	if (!name) return { ok: false, error: 'Enter a name.' }
@@ -44,12 +51,22 @@ export function parseListenerForm(form: FormData): Parsed<ListenerInput> {
 	const rawFocus = form.get('focus')
 	const focus = typeof rawFocus === 'string' ? rawFocus.trim() : ''
 	if (focus.length > MAX_NOTE) return { ok: false, error: 'Keep the focus under 2000 characters.' }
+	const days = parseDaysForm(form)
+	if (!days.ok) return days
 	const rawStack = form.get('stack')
 	const stack = parseStack(typeof rawStack === 'string' ? rawStack : '', stackFormat(form))
 	if (!stack.ok) return { ok: false, error: stack.error }
 	return {
 		ok: true,
-		input: { name, email: email || null, timezone, stack: stack.dependencies, focus, minutes },
+		input: {
+			name,
+			email: email || null,
+			timezone,
+			stack: stack.dependencies,
+			focus,
+			minutes,
+			days: days.input,
+		},
 	}
 }
 

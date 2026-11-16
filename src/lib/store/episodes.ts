@@ -35,6 +35,20 @@ export async function existingEpisodeKeys(
 	return new Set(rows.map((row) => `${row.listener_id}:${row.published_on}`))
 }
 
+export async function lastEpisodeDates(
+	pairs: { listenerId: number; date: string }[]
+): Promise<Map<number, string>> {
+	if (pairs.length === 0) return new Map()
+	const rows = (await sql`
+		SELECT due.listener_id, max(e.published_on)::text AS last
+		FROM unnest(${pairs.map((pair) => pair.listenerId)}::int[],
+			${pairs.map((pair) => pair.date)}::date[]) AS due (listener_id, on_date)
+		JOIN episodes e ON e.listener_id = due.listener_id AND e.published_on < due.on_date
+		GROUP BY due.listener_id
+	`) as { listener_id: number; last: string }[]
+	return new Map(rows.map((row) => [row.listener_id, row.last]))
+}
+
 export async function recentEpisodes(listenerId: number, limit: number): Promise<RecentEpisode[]> {
 	const rows = (await sql`
 		SELECT published_on::text AS date, title, segments FROM episodes

@@ -15,7 +15,7 @@ import { latestFeedbackForListener, latestSurvey } from '@/lib/store/feedback'
 import { listInterests } from '@/lib/store/interests'
 import { getListener } from '@/lib/store/listeners'
 import { forwardedIp } from '@/lib/throttle'
-import { FeedbackForm, InterestsForm, SurveyForm } from './forms'
+import { DaysForm, FeedbackForm, InterestsForm, SurveyForm } from './forms'
 
 export const metadata: Metadata = {
 	title: 'Your Diffcast',
@@ -49,7 +49,7 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 
 			<section className="card space-y-3" aria-labelledby="survey-heading">
 				<h2 id="survey-heading" className="text-lg font-semibold">
-					Would you pay $15 a month for this?
+					Would you pay $25 a month for this?
 				</h2>
 				<SurveyForm
 					token={token}
@@ -62,6 +62,13 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 					What your episodes cover
 				</h2>
 				<InterestsForm token={token} interests={interests} />
+			</section>
+
+			<section className="card space-y-3" aria-labelledby="days-heading">
+				<h2 id="days-heading" className="font-medium">
+					When episodes arrive
+				</h2>
+				<DaysForm token={token} days={listener.days} />
 			</section>
 
 			<section className="card space-y-2 text-sm" aria-labelledby="feed-heading">
@@ -80,7 +87,9 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 
 			<section className="space-y-6" aria-label="Episodes">
 				{episodes.length === 0 && (
-					<p className="text-muted">No episodes yet. The first one lands on a weekday morning.</p>
+					<p className="text-muted">
+						No episodes yet. The first one lands on the next morning you picked.
+					</p>
 				)}
 				{episodes.map((episode) => {
 					const current = feedbackByEpisode.get(episode.id)

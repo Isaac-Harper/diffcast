@@ -10,11 +10,14 @@ import {
 	listenTarget,
 	meetsErrorLine,
 	onTimeRate,
+	scheduledDates,
 	SMOKE_MODEL,
 	storyTarget,
 } from './gate'
 import type { GateCheck, GateEpisode, GateListener } from './gate'
 
+const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
+const WEEKDAYS = [1, 2, 3, 4, 5]
 const WINDOW = gateWindow({ DIFFCAST_GATE_START: '2026-11-16' })
 if (!WINDOW) throw new Error('window')
 
@@ -36,6 +39,7 @@ function listener(id: number, overrides: Partial<GateListener> = {}): GateListen
 		id,
 		name: `L${id}`,
 		timezone: 'America/Los_Angeles',
+		days: EVERY_DAY,
 		wouldPay: null,
 		episodes: [],
 		...overrides,
@@ -43,11 +47,11 @@ function listener(id: number, overrides: Partial<GateListener> = {}): GateListen
 }
 
 describe('gate window', () => {
-	it('takes weekdays from the start, default 10', () => {
-		expect(WINDOW.dates).toHaveLength(10)
+	it('takes calendar days from the start, default 14', () => {
+		expect(WINDOW.dates).toHaveLength(14)
 		expect(WINDOW.dates[0]).toBe('2026-11-16')
-		expect(WINDOW.dates[5]).toBe('2026-11-23')
-		expect(WINDOW.dates.at(-1)).toBe('2026-11-27')
+		expect(WINDOW.dates[5]).toBe('2026-11-21')
+		expect(WINDOW.dates.at(-1)).toBe('2026-11-29')
 		expect(gateWindow({})).toBeNull()
 		expect(gateWindow({ DIFFCAST_GATE_START: '2026-11-16', DIFFCAST_GATE_DAYS: '5' })?.days).toBe(5)
 		expect(() =>
@@ -55,24 +59,38 @@ describe('gate window', () => {
 		).toThrow()
 	})
 
-	it('scales the targets with the window', () => {
-		expect(listenTarget(10)).toBe(6)
+	it("counts only each listener's scheduled days", () => {
+		expect(scheduledDates(WINDOW, EVERY_DAY)).toHaveLength(14)
+		expect(scheduledDates(WINDOW, WEEKDAYS)).toHaveLength(10)
+		expect(scheduledDates(WINDOW, [6, 7])).toEqual([
+			'2026-11-21',
+			'2026-11-22',
+			'2026-11-28',
+			'2026-11-29',
+		])
+		expect(listenTarget(14)).toBe(9)
 		expect(storyTarget(10)).toBe(8)
-		expect(expectedEpisodes(WINDOW, '2026-11-18')).toBe(3)
-		expect(expectedEpisodes(WINDOW, '2026-12-31')).toBe(10)
+		expect(expectedEpisodes(WINDOW, EVERY_DAY, '2026-11-18')).toBe(3)
+		expect(expectedEpisodes(WINDOW, WEEKDAYS, '2026-11-23')).toBe(6)
+		expect(expectedEpisodes(WINDOW, [6, 7], '2026-12-31')).toBe(4)
 	})
 })
 
 describe('listener metrics', () => {
-	it('counts delivered, downloaded, listened and story days inside the window only', () => {
+	it('counts delivered, downloaded, listened and daily story days inside the window only', () => {
 		const row = listenerGate(
 			listener(1, {
 				wouldPay: 'maybe',
 				episodes: [
-					...WINDOW.dates.slice(0, 6).map((date) => episode(date)),
-					episode(WINDOW.dates[6] ?? '', { listened: 'partly', storyCount: 2 }),
-					episode(WINDOW.dates[7] ?? '', { listened: 'no', downloaded: false }),
-					episode(WINDOW.dates[8] ?? '', { listened: null, storyCount: 0 }),
+					...WINDOW.dates.map((date, index) =>
+						index === 2
+							? episode(date, { listened: 'partly', storyCount: 2 })
+							: index === 3
+								? episode(date, { listened: 'no', downloaded: false })
+								: index === 4
+									? episode(date, { listened: null, storyCount: 0 })
+									: episode(date)
+					),
 					episode('2026-11-13'),
 				],
 			}),
@@ -80,14 +98,56 @@ describe('listener metrics', () => {
 			'2026-12-01'
 		)
 		expect(row).toMatchObject({
-			expected: 10,
-			delivered: 9,
-			downloaded: 8,
-			listened: 7,
-			storyDays: 7,
+			scheduled: 14,
+			expected: 14,
+			delivered: 14,
+			downloaded: 13,
+			listened: 12,
+			listenNeeded: 9,
+			storyDays: 8,
+			storyNeeded: 8,
 			wouldPay: 'maybe',
 			meetsListen: true,
+			meetsStories: true,
+		})
+	})
+
+	it('scales the targets with the days a listener picked', () => {
+		const weekdays = listenerGate(
+			listener(2, {
+				days: WEEKDAYS,
+				episodes: WINDOW.dates.slice(0, 5).map((date) => episode(date)),
+			}),
+			WINDOW,
+			'2026-11-23'
+		)
+		expect(weekdays).toMatchObject({
+			scheduled: 10,
+			expected: 6,
+			delivered: 5,
+			listenNeeded: 6,
+			storyDays: 5,
+			storyNeeded: 8,
+			meetsListen: false,
 			meetsStories: false,
+		})
+		const weekends = listenerGate(
+			listener(3, {
+				days: [6, 7],
+				episodes: ['2026-11-21', '2026-11-22', '2026-11-28'].map((date) => episode(date)),
+			}),
+			WINDOW,
+			'2026-12-01'
+		)
+		expect(weekends).toMatchObject({
+			scheduled: 4,
+			expected: 4,
+			listened: 3,
+			listenNeeded: 3,
+			storyDays: 0,
+			storyNeeded: 0,
+			meetsListen: true,
+			meetsStories: true,
 		})
 	})
 
@@ -136,9 +196,9 @@ describe('gate lines', () => {
 			{ verdict: 'error', model: 'm' },
 		]
 		const report = gateReport(listeners, checks, WINDOW, '2026-12-01')
-		expect(report.listen).toEqual({ count: 5, needed: 5, episodes: 6, met: true })
+		expect(report.listen).toEqual({ count: 5, needed: 5, met: true })
 		expect(report.pay).toEqual({ count: 3, needed: 3, met: true })
-		expect(report.stories).toEqual({ count: 5, of: 6, days: 8, met: false })
+		expect(report.stories).toEqual({ count: 5, of: 6, met: false })
 		expect(report.errors).toEqual({ checked: 20, errors: 1, met: true })
 		expect(report.cost.max).toBe(0.3)
 		expect(report.onTime).toBe(1)

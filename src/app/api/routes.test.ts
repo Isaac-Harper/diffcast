@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
 		stack: { name: string; ecosystem: string }[]
 		focus: string
 		minutes: number
+		days: number[]
 		active: boolean
 	}[],
 	episodes: [] as { id: number; listenerId: number; date: string; audioUrl: string }[],
@@ -79,6 +80,17 @@ vi.mock('@/lib/store/episodes', () => ({
 					)
 				)
 				.map((pair) => `${pair.listenerId}:${pair.date}`)
+		),
+	lastEpisodeDates: async (pairs: { listenerId: number; date: string }[]) =>
+		new Map(
+			pairs.flatMap((pair) => {
+				const dates = state.episodes
+					.filter((episode) => episode.listenerId === pair.listenerId && episode.date < pair.date)
+					.map((episode) => episode.date)
+					.sort()
+				const last = dates.at(-1)
+				return last ? [[pair.listenerId, last] as const] : []
+			})
 		),
 	recentEpisodes: async () => [
 		{
@@ -222,6 +234,7 @@ function reset() {
 			stack: [{ name: 'next', ecosystem: 'npm' }],
 			focus: 'APIs',
 			minutes: 10,
+			days: [1, 2, 3, 4, 5, 6, 7],
 			active: true,
 		},
 		{
@@ -232,6 +245,7 @@ function reset() {
 			stack: [],
 			focus: '',
 			minutes: 8,
+			days: [1, 2, 3, 4, 5],
 			active: true,
 		},
 		{
@@ -242,6 +256,7 @@ function reset() {
 			stack: [],
 			focus: '',
 			minutes: 10,
+			days: [1, 2, 3, 4, 5, 6, 7],
 			active: false,
 		},
 	]
@@ -329,6 +344,8 @@ describe('job api bodies', () => {
 			{
 				listenerId: 1,
 				date: '2026-11-16',
+				format: 'daily',
+				since: '2026-11-13',
 				timezone: 'America/Los_Angeles',
 				minutes: 10,
 				stack: [{ name: 'next', ecosystem: 'npm' }],
@@ -353,6 +370,23 @@ describe('job api bodies', () => {
 				(entry) => [entry.listenerId, entry.date]
 			)
 		).toEqual([[2, '2026-11-17']])
+		const saturday = await due(request('/api/jobs/due?now=2026-11-21T12:00:00Z', { auth: bearer }))
+		expect(
+			(
+				(await saturday.json()) as {
+					listeners: { listenerId: number; format: string; since: string | null }[]
+				}
+			).listeners.map((entry) => [entry.listenerId, entry.format, entry.since])
+		).toEqual([[1, 'weekly_recap', '2026-11-13']])
+		state.episodes = []
+		const sunday = await due(request('/api/jobs/due?now=2026-11-22T12:00:00Z', { auth: bearer }))
+		expect(
+			(
+				(await sunday.json()) as {
+					listeners: { listenerId: number; format: string; since: string | null }[]
+				}
+			).listeners.map((entry) => [entry.listenerId, entry.format, entry.since])
+		).toEqual([[1, 'week_ahead', null]])
 		expect((await due(request('/api/jobs/due?now=yesterday', { auth: bearer }))).status).toBe(400)
 	})
 

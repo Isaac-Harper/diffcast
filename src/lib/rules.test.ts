@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { blobStoreId, isBlobUrl } from './blob-rules'
-import { dueDate, selectDue } from './due'
+import { dueDay, selectDue } from './due'
 import { buildFeed, durationTag, pubDate, xmlEscape } from './feed'
 import type { FeedEpisode } from './episode-types'
 import {
@@ -14,8 +14,9 @@ import {
 	userAgent,
 } from './feed-tokens'
 import { parseFeedbackForm, parseListenerForm, parseSurveyForm } from './forms'
+import { formatForDate, normalizeDays, scheduleLabel } from './schedule'
 import { signSession, signingKey, verifySession } from './session'
-import { isTimeZone, weekdaysFrom, zonedInstant } from './time'
+import { calendarDaysFrom, isTimeZone, zonedInstant } from './time'
 
 const TOKEN = 'a'.repeat(64)
 const AUDIO = 'https://abc123.private.blob.vercel-storage.com/episodes/4/2026-11-16-x1y2.mp3'
@@ -49,45 +50,117 @@ function form(values: Record<string, string>): FormData {
 	return data
 }
 
+const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
+const WEEKDAYS = [1, 2, 3, 4, 5]
+
 describe('due rule', () => {
-	it('is due from 03:00 to 05:59 local on a weekday', () => {
+	it('is due from 03:00 to 05:59 local on a scheduled day', () => {
 		const zone = 'America/Los_Angeles'
-		expect(dueDate(new Date('2026-11-16T10:59:00Z'), zone)).toBeNull()
-		expect(dueDate(new Date('2026-11-16T11:00:00Z'), zone)).toBe('2026-11-16')
-		expect(dueDate(new Date('2026-11-16T13:59:00Z'), zone)).toBe('2026-11-16')
-		expect(dueDate(new Date('2026-11-16T14:00:00Z'), zone)).toBeNull()
+		expect(dueDay(new Date('2026-11-16T10:59:00Z'), zone, EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-11-16T11:00:00Z'), zone, EVERY_DAY)).toEqual({
+			date: '2026-11-16',
+			format: 'daily',
+		})
+		expect(dueDay(new Date('2026-11-16T13:59:00Z'), zone, EVERY_DAY)?.date).toBe('2026-11-16')
+		expect(dueDay(new Date('2026-11-16T14:00:00Z'), zone, EVERY_DAY)).toBeNull()
 	})
 
-	it('skips Saturday and Sunday in local time', () => {
-		expect(dueDate(new Date('2026-11-21T12:00:00Z'), 'America/Los_Angeles')).toBeNull()
-		expect(dueDate(new Date('2026-11-22T12:00:00Z'), 'America/Los_Angeles')).toBeNull()
-		expect(dueDate(new Date('2026-11-15T18:30:00Z'), 'Asia/Tokyo')).toBe('2026-11-16')
-		expect(dueDate(new Date('2026-11-14T18:30:00Z'), 'Asia/Tokyo')).toBeNull()
+	it('runs on weekends with the recap on Saturday and the look ahead on Sunday', () => {
+		const zone = 'America/Los_Angeles'
+		expect(dueDay(new Date('2026-11-21T12:00:00Z'), zone, EVERY_DAY)).toEqual({
+			date: '2026-11-21',
+			format: 'weekly_recap',
+		})
+		expect(dueDay(new Date('2026-11-22T12:00:00Z'), zone, EVERY_DAY)).toEqual({
+			date: '2026-11-22',
+			format: 'week_ahead',
+		})
+		expect(dueDay(new Date('2026-11-20T12:00:00Z'), zone, EVERY_DAY)?.format).toBe('daily')
+	})
+
+	it('skips the days a listener turned off, by the local weekday', () => {
+		expect(dueDay(new Date('2026-11-21T12:00:00Z'), 'America/Los_Angeles', WEEKDAYS)).toBeNull()
+		expect(dueDay(new Date('2026-11-22T12:00:00Z'), 'America/Los_Angeles', WEEKDAYS)).toBeNull()
+		expect(dueDay(new Date('2026-11-15T18:30:00Z'), 'Asia/Tokyo', WEEKDAYS)?.date).toBe(
+			'2026-11-16'
+		)
+		expect(dueDay(new Date('2026-11-14T18:30:00Z'), 'Asia/Tokyo', WEEKDAYS)).toBeNull()
+		expect(dueDay(new Date('2026-11-14T18:30:00Z'), 'Asia/Tokyo', [7])).toEqual({
+			date: '2026-11-15',
+			format: 'week_ahead',
+		})
+		const mondayWednesday = [1, 3]
+		expect(dueDay(new Date('2026-11-17T12:00:00Z'), 'UTC', mondayWednesday)).toBeNull()
+		expect(dueDay(new Date('2026-11-18T04:00:00Z'), 'UTC', mondayWednesday)?.date).toBe(
+			'2026-11-18'
+		)
 	})
 
 	it('uses the local date, not the UTC one', () => {
-		expect(dueDate(new Date('2026-11-16T18:30:00Z'), 'Asia/Tokyo')).toBe('2026-11-17')
-		expect(dueDate(new Date('2026-11-16T15:00:00Z'), 'Pacific/Auckland')).toBe('2026-11-17')
+		expect(dueDay(new Date('2026-11-16T18:30:00Z'), 'Asia/Tokyo', EVERY_DAY)?.date).toBe(
+			'2026-11-17'
+		)
+		expect(dueDay(new Date('2026-11-16T15:00:00Z'), 'Pacific/Auckland', EVERY_DAY)?.date).toBe(
+			'2026-11-17'
+		)
+		expect(dueDay(new Date('2026-11-20T15:00:00Z'), 'Pacific/Auckland', EVERY_DAY)).toEqual({
+			date: '2026-11-21',
+			format: 'weekly_recap',
+		})
 	})
 
-	it('follows daylight saving time', () => {
+	it('follows daylight saving time, weekends included', () => {
 		const zone = 'America/New_York'
-		expect(dueDate(new Date('2026-03-06T07:00:00Z'), zone)).toBeNull()
-		expect(dueDate(new Date('2026-03-06T08:00:00Z'), zone)).toBe('2026-03-06')
-		expect(dueDate(new Date('2026-03-09T07:00:00Z'), zone)).toBe('2026-03-09')
-		expect(dueDate(new Date('2026-03-09T10:00:00Z'), zone)).toBeNull()
-		expect(dueDate(new Date('2026-10-26T02:30:00Z'), 'Europe/London')).toBeNull()
-		expect(dueDate(new Date('2026-10-26T03:30:00Z'), 'Europe/London')).toBe('2026-10-26')
+		expect(dueDay(new Date('2026-03-06T07:00:00Z'), zone, EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-03-06T08:00:00Z'), zone, EVERY_DAY)?.date).toBe('2026-03-06')
+		expect(dueDay(new Date('2026-03-08T06:30:00Z'), zone, EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-03-08T07:00:00Z'), zone, EVERY_DAY)).toEqual({
+			date: '2026-03-08',
+			format: 'week_ahead',
+		})
+		expect(dueDay(new Date('2026-03-09T07:00:00Z'), zone, EVERY_DAY)?.date).toBe('2026-03-09')
+		expect(dueDay(new Date('2026-03-09T10:00:00Z'), zone, EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-11-01T07:00:00Z'), zone, EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-11-01T08:00:00Z'), zone, EVERY_DAY)?.format).toBe('week_ahead')
+		expect(dueDay(new Date('2026-10-25T02:30:00Z'), 'Europe/London', EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-10-25T03:00:00Z'), 'Europe/London', EVERY_DAY)?.date).toBe(
+			'2026-10-25'
+		)
+		expect(dueDay(new Date('2026-10-26T02:30:00Z'), 'Europe/London', EVERY_DAY)).toBeNull()
+		expect(dueDay(new Date('2026-10-26T03:30:00Z'), 'Europe/London', EVERY_DAY)?.date).toBe(
+			'2026-10-26'
+		)
 	})
 
-	it('drops listeners who already have that day', () => {
+	it('drops listeners who already have that day or have it turned off', () => {
 		const listeners = [
-			{ id: 1, timezone: 'America/Los_Angeles' },
-			{ id: 2, timezone: 'America/Los_Angeles' },
-			{ id: 3, timezone: 'Europe/Berlin' },
+			{ id: 1, timezone: 'America/Los_Angeles', days: EVERY_DAY },
+			{ id: 2, timezone: 'America/Los_Angeles', days: EVERY_DAY },
+			{ id: 3, timezone: 'Europe/Berlin', days: EVERY_DAY },
+			{ id: 4, timezone: 'America/Los_Angeles', days: [2, 3, 4, 5, 6] },
 		]
 		const due = selectDue(listeners, new Date('2026-11-16T12:00:00Z'), (id) => id === 2)
-		expect(due).toEqual([{ listener: listeners[0], date: '2026-11-16' }])
+		expect(due).toEqual([{ listener: listeners[0], date: '2026-11-16', format: 'daily' }])
+	})
+})
+
+describe('schedule', () => {
+	it('normalizes day sets and names them', () => {
+		expect(normalizeDays(['7', '1', '1', '3'])).toEqual([1, 3, 7])
+		expect(normalizeDays([])).toBeNull()
+		expect(normalizeDays(['0'])).toBeNull()
+		expect(normalizeDays(['8'])).toBeNull()
+		expect(normalizeDays(['mon'])).toBeNull()
+		expect(scheduleLabel(EVERY_DAY)).toBe('Every day')
+		expect(scheduleLabel(WEEKDAYS)).toBe('Weekdays')
+		expect(scheduleLabel([6, 7])).toBe('Weekends')
+		expect(scheduleLabel([1, 3, 5])).toBe('Mon, Wed, Fri')
+	})
+
+	it('maps dates to formats', () => {
+		expect(formatForDate('2026-11-20')).toBe('daily')
+		expect(formatForDate('2026-11-21')).toBe('weekly_recap')
+		expect(formatForDate('2026-11-22')).toBe('week_ahead')
 	})
 })
 
@@ -107,11 +180,11 @@ describe('time', () => {
 		)
 	})
 
-	it('validates time zones and lists weekdays', () => {
+	it('validates time zones and lists calendar days', () => {
 		expect(isTimeZone('Europe/Berlin')).toBe(true)
 		expect(isTimeZone('Mars/Olympus')).toBe(false)
 		expect(isTimeZone('')).toBe(false)
-		expect(weekdaysFrom('2026-11-20', 3)).toEqual(['2026-11-20', '2026-11-23', '2026-11-24'])
+		expect(calendarDaysFrom('2026-11-20', 3)).toEqual(['2026-11-20', '2026-11-21', '2026-11-22'])
 	})
 })
 
@@ -236,17 +309,17 @@ describe('session', () => {
 })
 
 describe('forms', () => {
-	it('parses a listener with a pasted stack', () => {
-		const parsed = parseListenerForm(
-			form({
-				name: ' Ana ',
-				email: '',
-				timezone: 'Europe/Berlin',
-				minutes: '8',
-				focus: 'Payments API',
-				stack: '{"dependencies":{"next":"16"},"devDependencies":{"vitest":"5"}}',
-			})
-		)
+	it('parses a listener with a pasted stack and their days', () => {
+		const values = form({
+			name: ' Ana ',
+			email: '',
+			timezone: 'Europe/Berlin',
+			minutes: '8',
+			focus: 'Payments API',
+			stack: '{"dependencies":{"next":"16"},"devDependencies":{"vitest":"5"}}',
+		})
+		for (const day of ['5', '1', '6']) values.append('days', day)
+		const parsed = parseListenerForm(values)
 		expect(parsed).toEqual({
 			ok: true,
 			input: {
@@ -254,6 +327,7 @@ describe('forms', () => {
 				email: null,
 				timezone: 'Europe/Berlin',
 				minutes: 8,
+				days: [1, 5, 6],
 				focus: 'Payments API',
 				stack: [
 					{ name: 'next', ecosystem: 'npm' },
@@ -263,8 +337,14 @@ describe('forms', () => {
 		})
 	})
 
-	it('rejects a bad zone, minutes or email', () => {
-		const base = { name: 'Ana', timezone: 'UTC', minutes: '10' }
+	it('rejects a bad zone, minutes, email or no days', () => {
+		const base = { name: 'Ana', timezone: 'UTC', minutes: '10', days: '3' }
+		expect(parseListenerForm(form(base)).ok).toBe(true)
+		expect(parseListenerForm(form({ ...base, days: '' }))).toEqual({
+			ok: false,
+			error: 'Pick at least one day.',
+		})
+		expect(parseListenerForm(form({ ...base, days: '9' })).ok).toBe(false)
 		expect(parseListenerForm(form({ ...base, timezone: 'Nowhere/Here' })).ok).toBe(false)
 		expect(parseListenerForm(form({ ...base, minutes: '30' })).ok).toBe(false)
 		expect(parseListenerForm(form({ ...base, email: 'nope' })).ok).toBe(false)

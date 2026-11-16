@@ -4,11 +4,12 @@ import { refresh } from 'next/cache'
 import { feedAccess } from '@/lib/feed-access'
 import type { MissStatus } from '@/lib/feed-access'
 import { parseInterestsEditor } from '@/lib/interests-form'
-import { parseFeedbackForm, parseSurveyForm, text, wholeId } from '@/lib/forms'
+import { parseDaysForm, parseFeedbackForm, parseSurveyForm, text, wholeId } from '@/lib/forms'
 import { clientIp } from '@/lib/login-throttle'
 import { listenerOwnsEpisode } from '@/lib/store/episodes'
 import { addFeedback, addSurvey } from '@/lib/store/feedback'
 import { saveInterests } from '@/lib/store/interests'
+import { setListenerDays } from '@/lib/store/listeners'
 
 export type FormResult = { status: 'idle' | 'saved' | 'error'; message: string }
 
@@ -52,4 +53,14 @@ export async function saveMyInterests(_previous: FormResult, form: FormData): Pr
 	await saveInterests(access.listenerId, parsed.input)
 	refresh()
 	return { status: 'saved', message: 'Interests saved. They shape your next episode.' }
+}
+
+export async function saveMyDays(_previous: FormResult, form: FormData): Promise<FormResult> {
+	const access = await feedAccess(await clientIp(), text(form, 'token', 64))
+	if (typeof access === 'number') return denied(access)
+	const parsed = parseDaysForm(form)
+	if (!parsed.ok) return { status: 'error', message: parsed.error }
+	await setListenerDays(access.listenerId, parsed.input)
+	refresh()
+	return { status: 'saved', message: 'Days saved.' }
 }

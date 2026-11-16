@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { saveMyInterests, submitFeedback, submitSurvey } from './actions'
+import { saveMyDays, saveMyInterests, submitFeedback, submitSurvey } from './actions'
 
 const state = vi.hoisted(() => ({
 	tokens: new Map<string, { id: number; listenerId: number }>(),
 	feedback: [] as { episodeId: number; input: unknown }[],
 	surveys: [] as { listenerId: number; input: unknown }[],
 	interests: [] as { listenerId: number; rows: unknown }[],
+	days: [] as { listenerId: number; days: number[] }[],
 	ip: '192.0.2.50',
 }))
 
@@ -30,6 +31,11 @@ vi.mock('@/lib/store/episodes', () => ({
 vi.mock('@/lib/store/interests', () => ({
 	saveInterests: async (listenerId: number, rows: unknown) => {
 		state.interests.push({ listenerId, rows })
+	},
+}))
+vi.mock('@/lib/store/listeners', () => ({
+	setListenerDays: async (listenerId: number, days: number[]) => {
+		state.days.push({ listenerId, days })
 	},
 }))
 vi.mock('@/lib/store/feedback', () => ({
@@ -57,6 +63,7 @@ describe('listener page actions', () => {
 		state.feedback.length = 0
 		state.surveys.length = 0
 		state.interests.length = 0
+		state.days.length = 0
 		state.ip = '192.0.2.50'
 		feedMisses.clear()
 	})
@@ -167,5 +174,36 @@ describe('listener page actions', () => {
 			message: 'Too many attempts. Try again later.',
 		})
 		expect(state.interests).toEqual([])
+	})
+
+	function daysForm(token: string, days: string[]): FormData {
+		const data = form({ token, listenerId: '2', id: '2' })
+		for (const day of days) data.append('days', day)
+		return data
+	}
+
+	it('saves days only for the listener the token belongs to', async () => {
+		const result = await saveMyDays(IDLE, daysForm(ONE, ['5', '1', '3', '3']))
+		expect(result).toEqual({ status: 'saved', message: 'Days saved.' })
+		expect(state.days).toEqual([{ listenerId: 1, days: [1, 3, 5] }])
+	})
+
+	it('saves no days for a bad token, a blocked IP, no day or a bad day', async () => {
+		for (const token of [REVOKED, 'nope', '']) {
+			const result = await saveMyDays(IDLE, daysForm(token, ['1']))
+			expect(result.status, token).toBe('error')
+		}
+		expect(await saveMyDays(IDLE, daysForm(ONE, []))).toEqual({
+			status: 'error',
+			message: 'Pick at least one day.',
+		})
+		expect((await saveMyDays(IDLE, daysForm(ONE, ['1', '8']))).status).toBe('error')
+		feedMisses.clear()
+		for (let index = 0; index < 10; index += 1) feedMisses.add(state.ip)
+		expect(await saveMyDays(IDLE, daysForm(ONE, ['1']))).toEqual({
+			status: 'error',
+			message: 'Too many attempts. Try again later.',
+		})
+		expect(state.days).toEqual([])
 	})
 })

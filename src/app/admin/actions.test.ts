@@ -81,7 +81,11 @@ function form(values: Record<string, string>): FormData {
 const calls: [string, () => Promise<unknown>][] = [
 	[
 		'saveListener',
-		() => saveListener({ error: null }, form({ name: 'Ana', timezone: 'UTC', minutes: '10' })),
+		() =>
+			saveListener(
+				{ error: null },
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1' })
+			),
 	],
 	['previewStack', () => previewStack('next', 'lines')],
 	['toggleListener', () => toggleListener(form({ id: '1', active: 'false' }))],
@@ -141,7 +145,7 @@ describe('admin actions', () => {
 		await expect(
 			saveListener(
 				{ error: null },
-				form({ name: 'Ana', timezone: 'UTC', minutes: '10', waitlistId: '7' })
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1', waitlistId: '7' })
 			)
 		).rejects.toMatchObject({
 			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/admin\/listeners\/1/),
@@ -153,14 +157,14 @@ describe('admin actions', () => {
 		await expect(
 			saveListener(
 				{ error: null },
-				form({ name: 'Ana', timezone: 'UTC', minutes: '10', waitlistId: '7' })
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1', waitlistId: '7' })
 			)
 		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/) })
 		expect(state.writes).toEqual([])
 	})
 
 	function interestsForm(values: Record<string, string>): FormData {
-		const data = form({ name: 'Ana', timezone: 'UTC', minutes: '10', ...values })
+		const data = form({ name: 'Ana', timezone: 'UTC', minutes: '10', days: '1', ...values })
 		data.set('interestsEditor', '1')
 		for (const [topic, active] of [
 			['Security', 'true'],
@@ -198,7 +202,10 @@ describe('admin actions', () => {
 	it('leaves interests alone without the editor and refuses an empty editor', async () => {
 		state.session = signSession(signingKey(SECRET, PASSWORD))
 		await expect(
-			saveListener({ error: null }, form({ id: '1', name: 'Ana', timezone: 'UTC', minutes: '10' }))
+			saveListener(
+				{ error: null },
+				form({ id: '1', name: 'Ana', timezone: 'UTC', minutes: '10', days: '1' })
+			)
 		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT/) })
 		expect(state.writes).toEqual(['updateListener'])
 
@@ -207,6 +214,7 @@ describe('admin actions', () => {
 			name: 'Ana',
 			timezone: 'UTC',
 			minutes: '10',
+			days: '1',
 			interestsEditor: '1',
 		})
 		expect(await saveListener({ error: null }, empty)).toEqual({

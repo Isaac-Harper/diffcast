@@ -184,7 +184,7 @@
 		}
 	}
 
-	[data-slot='radio-group'][data-chips] {
+	:is([data-slot='radio-group'], [data-slot='checkbox-group'])[data-chips] {
 		display: flex;
 		flex-flow: row wrap;
 		gap: 0.5rem;
@@ -212,7 +212,7 @@
 				outline-offset: 2px;
 			}
 
-			& > [data-slot='radio'] {
+			& > :is([data-slot='radio'], [data-slot='checkbox']) {
 				position: absolute;
 				width: 1px;
 				height: 1px;

@@ -10,6 +10,7 @@ export interface Listener {
 	stack: Dependency[]
 	focus: string
 	minutes: number
+	days: number[]
 	active: boolean
 }
 
@@ -26,18 +27,19 @@ export interface ListenerInput {
 	stack: Dependency[]
 	focus: string
 	minutes: number
+	days: number[]
 }
 
 export async function listActiveListeners(): Promise<Listener[]> {
 	return (await sql`
-		SELECT id, name, email, timezone, stack, focus, minutes, active
+		SELECT id, name, email, timezone, stack, focus, minutes, days, active
 		FROM listeners WHERE active ORDER BY id
 	`) as Listener[]
 }
 
 export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 	return (await sql`
-		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.active,
+		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active,
 			(SELECT count(*)::int FROM episodes e WHERE e.listener_id = l.id) AS episode_count,
 			(SELECT max(published_on)::text FROM episodes e WHERE e.listener_id = l.id) AS last_episode,
 			(SELECT max(last_fetched_at)::text FROM feed_tokens t WHERE t.listener_id = l.id)
@@ -48,7 +50,8 @@ export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 
 export async function getListener(id: number): Promise<Listener | null> {
 	const rows = (await sql`
-		SELECT id, name, email, timezone, stack, focus, minutes, active FROM listeners WHERE id = ${id}
+		SELECT id, name, email, timezone, stack, focus, minutes, days, active FROM listeners
+		WHERE id = ${id}
 	`) as Listener[]
 	return rows[0] ?? null
 }
@@ -61,9 +64,9 @@ export async function listenerExists(id: number): Promise<boolean> {
 export async function addListener(input: ListenerInput): Promise<number> {
 	const rows = (await sql`
 		WITH created AS (
-			INSERT INTO listeners (name, email, timezone, stack, focus, minutes)
+			INSERT INTO listeners (name, email, timezone, stack, focus, minutes, days)
 			VALUES (${input.name}, ${input.email}, ${input.timezone}, ${JSON.stringify(input.stack)}::jsonb,
-				${input.focus}, ${input.minutes})
+				${input.focus}, ${input.minutes}, ${input.days}::smallint[])
 			RETURNING id
 		), seeded AS (
 			INSERT INTO interests (listener_id, topic, sort)
@@ -80,9 +83,14 @@ export async function addListener(input: ListenerInput): Promise<number> {
 export async function updateListener(id: number, input: ListenerInput): Promise<void> {
 	await sql`
 		UPDATE listeners SET name = ${input.name}, email = ${input.email}, timezone = ${input.timezone},
-			stack = ${JSON.stringify(input.stack)}::jsonb, focus = ${input.focus}, minutes = ${input.minutes}
+			stack = ${JSON.stringify(input.stack)}::jsonb, focus = ${input.focus}, minutes = ${input.minutes},
+			days = ${input.days}::smallint[]
 		WHERE id = ${id}
 	`
+}
+
+export async function setListenerDays(id: number, days: number[]): Promise<void> {
+	await sql`UPDATE listeners SET days = ${days}::smallint[] WHERE id = ${id}`
 }
 
 export async function setListenerActive(id: number, active: boolean): Promise<void> {

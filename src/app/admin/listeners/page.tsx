@@ -4,6 +4,7 @@ import { Button } from '@ui-sdk/react/button'
 import { formatInstant } from '@/lib/format'
 import { listListenerSummaries } from '@/lib/store/listeners'
 import { requireSession } from '@/lib/auth'
+import { scheduleLabel } from '@/lib/schedule'
 
 export const metadata: Metadata = { title: 'Listeners' }
 
@@ -30,6 +31,7 @@ export default async function ListenersPage() {
 							<tr>
 								<th>Name</th>
 								<th>Time zone</th>
+								<th>Schedule</th>
 								<th>Deps</th>
 								<th>Active</th>
 								<th>Episodes</th>
@@ -46,6 +48,7 @@ export default async function ListenersPage() {
 										</Link>
 									</td>
 									<td className="font-mono text-xs whitespace-nowrap">{listener.timezone}</td>
+									<td className="whitespace-nowrap">{scheduleLabel(listener.days)}</td>
 									<td>{listener.stack.length}</td>
 									<td>{listener.active ? 'yes' : 'no'}</td>
 									<td>{listener.episode_count}</td>
