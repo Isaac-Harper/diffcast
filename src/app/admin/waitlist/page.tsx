@@ -36,7 +36,7 @@ export default async function WaitlistPage() {
 						<tbody>
 							{entries.map((entry) => (
 								<tr key={entry.id}>
-									<td>{entry.email}</td>
+									<td className="whitespace-nowrap">{entry.email}</td>
 									<td className="max-w-72 text-pretty">{entry.interests_text || 'not said'}</td>
 									<td>{entry.podcast_app ?? 'none'}</td>
 									<td className="max-w-48 truncate font-mono text-xs">

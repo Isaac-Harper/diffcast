@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { CONTACT_EMAIL } from '@/lib/site'
 import { SiteFooter, SiteHeader } from '../components/site-chrome'
 
 export const metadata: Metadata = {
@@ -46,7 +47,7 @@ const SECTIONS = [
 	{
 		heading: 'Deletion',
 		paragraphs: [
-			'Ask and we delete your data: your email, your interests, your stack, your feedback and your episodes. To ask, reply to any email you have received from us.',
+			`Ask and we delete your data: your email, your interests, your stack, your feedback and your episodes. To ask, write to ${CONTACT_EMAIL}.`,
 		],
 	},
 	{
