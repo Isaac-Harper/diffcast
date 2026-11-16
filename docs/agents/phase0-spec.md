@@ -6,7 +6,7 @@ Goal: run real weekday episodes for Isaac plus 6 to 8 developers for 10 weekdays
 
 zod schemas for every job API body. Both the web app (`@/../shared/contract` or a `@shared/*` path alias) and the generator import it; the generator copies nothing.
 
-Speakers `host` (Mara) and `cohost` (Theo). Segment kinds: `news` (something happened), `update` (a development on a story the listener already heard), `watch` (upcoming release, deprecation or deadline). `storyCount` is the number of real, dated, sourced stories found for the listener today; the generator never pads to reach a count.
+Speakers `host` (Mara) and `cohost` (Theo). Segment kinds: `news` (something happened), `stack` (a real release, breaking change, deprecation or advisory in the listener's packages), `update` (a development on a story the listener already heard), `challenge` (a story that tests one of the listener's takes), `wildcard` (an adjacent pick that connects back to their interests), `watch` (upcoming release, decision or deadline). Every segment has `challenges` (the take it pushes on, quoted, or null), `topics` (interest topics it serves) and `packages` (empty unless it touches their packages). `storyCount` is the number of real, dated, sourced stories found for the listener today, wildcard excluded; the generator never pads to reach a count. Due listeners carry `interests` (active ones in sort order: topic, take, note).
 
 ## Web app (`src/`, `db/`)
 
@@ -22,6 +22,8 @@ Plain SQL migrations in `db/migrations/NNN_name.sql` applied by `db/migrate.mjs`
 - `surveys`: id, listener_id fk, would_pay (yes, maybe, no), note, created_at. Latest per listener counts.
 - `segment_checks`: id, episode_id fk, segment_index, verdict (correct, error, unclear), note, checked_at; unique (episode_id, segment_index).
 - `job_runs`: id, listener_id fk, run_on date, status (ok, fail), step (null when ok), message, at.
+
+Later migrations: `002_waitlist.sql` (waitlist), `003_interests.sql`: `interests` (id, listener_id fk on delete cascade, topic 1 to 100, take up to 500 or null, note up to 500 or null, active bool default true, sort int, created_at; unique (listener_id, lower(topic))). Existing listeners are seeded with the defaults (AI models and agents; Developer tools and web development; Startups and the tech industry; Security and privacy; Open source; Hardware and chips), and new listeners get them on creation.
 
 ### Auth
 
@@ -74,15 +76,16 @@ The research loop never gets local tools, files or shell; secrets other than the
 
 ### Prompt (`tools/generator/prompt.md`)
 
-A daily briefing for one developer about the packages they depend on and the work they described. Keep from cvzx `tools/podcast/prompt.md`: the sourcing rules (primary sources, fetch before relying, never invent quotes, numbers or dates, say when unconfirmed), the "write for the ear" block and the JSON only output contract. Developer specifics:
+A daily tech and AI briefing for one developer, built on the cvzx `tools/podcast/prompt.md`: primary sources, fetch before relying, never invent quotes, numbers or dates, say when unconfirmed, challenge not affirmation, the "write for the ear" block and the JSON only output contract. Diffcast specifics:
 
-- Sources in priority order: GitHub releases and tags, official changelogs and release notes, security advisories (GitHub Advisory Database, OSV, vendor advisories), maintainer and vendor blogs, RFCs and proposals, then news coverage and HN for context only.
-- Window: the last 24 hours, or since the previous weekday's episode (Monday covers the weekend). Older items only as `update` segments on stories in `recent`, when something materially changed.
-- Choose for consequence to this listener: breaking changes, deprecations, security fixes, major releases, notable new capabilities, ecosystem moves affecting several of their packages. One segment can cover several of their packages; tag them in `packages`.
-- Never pad. If little happened, say so plainly and make a short episode. Set `storyCount` honestly.
-- Structure: cold open on the most consequential item, segments, a `watch` close on what is coming this week if anything is.
-- Privacy: the focus text may name employers, clients or private projects. Never say or write those names; speak only about public packages and public news.
-- Two hosts: Mara (host) leads and explains; Theo (cohost) is the practical engineer who asks "what do I actually have to do", pushes on hype and adds migration detail. No flattery, no "great question", no welcome boilerplate.
+- Window: the last 24 hours; a Monday episode covers the weekend. The brief allows "since the last episode" only when `recent` is non empty. Older items only as `update` segments on stories in `recent`, when something materially changed.
+- Choose for consequence to this listener across their interests, at most one story per interest, spread across interests. Interest notes guide what matters within a topic.
+- The stack is one signal: a `stack` segment only when a real release, breaking change, deprecation or advisory touched their packages, tagged in `packages`.
+- A story touching an interest with a take becomes a `challenge` segment: steelman the other side, name who holds it, expand the debate, end on what would change the conclusion.
+- An optional `wildcard` adjacent to their interests that connects back. Close with `watch` when something is coming.
+- Never pad. Set `storyCount` honestly (wildcard excluded). Validation does not require a challenge or wildcard; they depend on the day.
+- Privacy: the focus text and notes may name employers, clients or private projects. Never say or write those names.
+- Two hosts: Mara (host) leads and explains; Theo (cohost) is the practical engineer who asks what it means for their work and pushes on hype. No flattery, no "great question", no welcome boilerplate.
 
 ### Tests and checks
 
