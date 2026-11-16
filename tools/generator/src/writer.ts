@@ -122,6 +122,7 @@ export function createGatewayWriterCall(settings: WriterSettings): WriterCall {
 				instructions: settings.instructions,
 				messages,
 				output: Output.object({ schema: modelFacingSchema(episodeScriptSchema) }),
+				reasoning: 'low',
 				abortSignal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
 				onLanguageModelCallEnd: (event) => {
 					providerMetadata = event.providerMetadata
