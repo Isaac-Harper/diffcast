@@ -11,6 +11,23 @@
 				{ "name": "vitest", "ecosystem": "npm" }
 			],
 			"focus": "A Next.js app with a background job runner.",
+			"interests": [
+				{
+					"topic": "AI models and agents",
+					"take": "Coding agents are mostly hype for production work.",
+					"note": null
+				},
+				{
+					"topic": "Developer tools and web development",
+					"take": null,
+					"note": "Mostly the React and Next.js world."
+				},
+				{
+					"topic": "Security and privacy",
+					"take": null,
+					"note": null
+				}
+			],
 			"recent": [],
 			"feedback": []
 		}

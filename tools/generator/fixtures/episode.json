@@ -4,16 +4,30 @@
 	"storyCount": 1,
 	"segments": [
 		{
-			"heading": "A sample release",
-			"kind": "news",
+			"heading": "A sample release in your stack",
+			"kind": "stack",
+			"challenges": null,
+			"topics": ["Developer tools and web development"],
 			"packages": ["zod"],
-			"sources": [{ "title": "Example release notes", "url": "https://example.com/releases/1" }]
+			"sources": [
+				{
+					"title": "Example release notes",
+					"url": "https://example.com/releases/1"
+				}
+			]
 		},
 		{
 			"heading": "What to watch this week",
 			"kind": "watch",
+			"challenges": null,
+			"topics": ["Developer tools and web development"],
 			"packages": ["next"],
-			"sources": [{ "title": "Example roadmap", "url": "https://example.com/roadmap" }]
+			"sources": [
+				{
+					"title": "Example roadmap",
+					"url": "https://example.com/roadmap"
+				}
+			]
 		}
 	],
 	"turns": [

@@ -26,6 +26,7 @@ function dueListener(listenerId: number, minutes: number): DueListener {
 		minutes,
 		stack: [{ name: 'next', ecosystem: 'npm' }],
 		focus: '',
+		interests: [],
 		recent: [],
 		feedback: [],
 	}
