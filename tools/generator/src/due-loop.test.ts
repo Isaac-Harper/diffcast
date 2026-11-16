@@ -34,7 +34,7 @@ describe('runListeners', () => {
 		const result = await runListeners(
 			[listener(1), listener(2), listener(3)],
 			async (current) => {
-				if (current.listenerId === 2) throw new StepFailure('tts', 'elevenlabs answered 401')
+				if (current.listenerId === 2) throw new StepFailure('tts', 'speech answered 401')
 				produced.push(current.listenerId)
 			},
 			mockJobs(reportFailure)
@@ -46,7 +46,7 @@ describe('runListeners', () => {
 			listenerId: 2,
 			date: '2026-11-16',
 			step: 'tts',
-			message: 'elevenlabs answered 401',
+			message: 'speech answered 401',
 		})
 	})
 

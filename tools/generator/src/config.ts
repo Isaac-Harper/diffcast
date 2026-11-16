@@ -1,18 +1,20 @@
 import { homedir } from 'node:os'
 
-export const DEFAULT_MODEL = 'anthropic/claude-sonnet-5-5'
-export const DEFAULT_TTS_MODEL = 'eleven_v4'
+export const DEFAULT_RESEARCH_MODEL = 'google/gemini-3.8-flash'
+export const DEFAULT_WRITER_MODEL = 'google/gemini-3.8-flash'
+export const DEFAULT_TTS_MODEL = 'fish-audio/s2.1-pro'
+export const DEFAULT_HOST_VOICE = 'e3cd384158934cc9a01029cd7d278634'
+export const DEFAULT_COHOST_VOICE = '536d3a5e000945adb7038665781a4aca'
 
 export type JobApiConfig = { jobUrl: string; jobToken: string }
 
 export type LiveConfig = JobApiConfig & {
 	gatewayApiKey: string
-	model: string
-	elevenLabsApiKey: string
+	researchModel: string
+	writerModel: string
+	ttsModel: string
 	hostVoice: string
 	cohostVoice: string
-	ttsModel: string
-	ttsUsdPerThousandCharacters: number
 }
 
 type Environment = Record<string, string | undefined>
@@ -42,29 +44,14 @@ export function loadJobApiConfig(environment: Environment): JobApiConfig {
 }
 
 export function loadLiveConfig(environment: Environment): LiveConfig {
-	requireEnvironment(environment, [
-		'DIFFCAST_URL',
-		'DIFFCAST_JOB_TOKEN',
-		'AI_GATEWAY_API_KEY',
-		'ELEVENLABS_API_KEY',
-		'DIFFCAST_HOST_VOICE',
-		'DIFFCAST_COHOST_VOICE',
-		'DIFFCAST_TTS_USD_PER_1K_CHARS',
-	])
-	const ttsUsdPerThousandCharacters = Number(
-		requiredValue(environment, 'DIFFCAST_TTS_USD_PER_1K_CHARS')
-	)
-	if (!(ttsUsdPerThousandCharacters >= 0)) {
-		throw new Error('DIFFCAST_TTS_USD_PER_1K_CHARS must be a non-negative number')
-	}
+	requireEnvironment(environment, ['DIFFCAST_URL', 'DIFFCAST_JOB_TOKEN', 'AI_GATEWAY_API_KEY'])
 	return {
 		...loadJobApiConfig(environment),
 		gatewayApiKey: requiredValue(environment, 'AI_GATEWAY_API_KEY'),
-		model: environment['DIFFCAST_MODEL'] || DEFAULT_MODEL,
-		elevenLabsApiKey: requiredValue(environment, 'ELEVENLABS_API_KEY'),
-		hostVoice: requiredValue(environment, 'DIFFCAST_HOST_VOICE'),
-		cohostVoice: requiredValue(environment, 'DIFFCAST_COHOST_VOICE'),
+		researchModel: environment['DIFFCAST_RESEARCH_MODEL'] || DEFAULT_RESEARCH_MODEL,
+		writerModel: environment['DIFFCAST_WRITER_MODEL'] || DEFAULT_WRITER_MODEL,
 		ttsModel: environment['DIFFCAST_TTS_MODEL'] || DEFAULT_TTS_MODEL,
-		ttsUsdPerThousandCharacters,
+		hostVoice: environment['DIFFCAST_HOST_VOICE'] || DEFAULT_HOST_VOICE,
+		cohostVoice: environment['DIFFCAST_COHOST_VOICE'] || DEFAULT_COHOST_VOICE,
 	}
 }

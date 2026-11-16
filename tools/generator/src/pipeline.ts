@@ -1,19 +1,21 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { z } from 'zod'
 import { dueListenerSchema, episodeScriptSchema } from '../../../shared/contract.ts'
 import type { DueListener, EpisodeMetrics, EpisodeScript } from '../../../shared/contract.ts'
 import { renderClips, ttsCharacters } from './clips.ts'
 import type { ClipRenderer } from './clips.ts'
+import { roundUsd } from './gateway-cost.ts'
 import type { JobClient } from './job-api.ts'
 import { log } from './log.ts'
 import { mixEpisode, probeMix } from './mix.ts'
 import type { MixedEpisode } from './mix.ts'
-import { llmCostUsd, ttsCostUsd } from './pricing.ts'
-import type { ResearchUsage } from './pricing.ts'
-import type { ScriptWriter } from './script-writer.ts'
+import type { ResearchRecord, Researcher } from './research.ts'
+import { savedResearchNotesSchema } from './research-notes.ts'
 import { inStep, STEPS } from './steps.ts'
 import type { Step } from './steps.ts'
 import { episodeDirectory, ensureDirectory, readJsonFile, writeJsonFile } from './work-directory.ts'
+import type { EpisodeWriter, WriteRecord } from './writer.ts'
 
 export type EpisodeUploader = (
 	listenerId: number,
@@ -21,12 +23,12 @@ export type EpisodeUploader = (
 	mixed: MixedEpisode
 ) => Promise<string>
 
-export type MetricsMode =
-	{ kind: 'measured'; ttsUsdPerThousandCharacters: number } | { kind: 'zeroed'; model: string }
+export type MetricsMode = { kind: 'measured' } | { kind: 'zeroed'; model: string }
 
 export type PipelineServices = {
 	jobs: JobClient
-	writer: ScriptWriter
+	researcher: Researcher
+	writer: EpisodeWriter
 	renderer: ClipRenderer
 	upload: EpisodeUploader
 	metrics: MetricsMode
@@ -38,10 +40,37 @@ export type PipelineOptions = {
 	stopAfterMix: boolean
 }
 
-type ResearchRecord = { usages: ResearchUsage[]; researchSeconds: number }
+export type TtsRecord = { costUsd: number }
+
+const researchRecordSchema = z.object({
+	model: z.string(),
+	inputTokens: z.number(),
+	outputTokens: z.number(),
+	costUsd: z.number(),
+	webSearches: z.number(),
+	webFetches: z.number(),
+	researchSeconds: z.number(),
+})
+
+const writeRecordSchema = z.object({
+	model: z.string(),
+	inputTokens: z.number(),
+	outputTokens: z.number(),
+	costUsd: z.number(),
+	attempts: z.number(),
+})
+
+const ttsRecordSchema = z.object({ costUsd: z.number() })
 
 function startsBy(fromStep: Step, step: Step): boolean {
 	return STEPS.indexOf(fromStep) <= STEPS.indexOf(step)
+}
+
+async function readSaved<T>(directory: string, file: string, schema: z.ZodType<T>): Promise<T> {
+	const parsed = schema.safeParse(await readJsonFile(join(directory, file)))
+	if (!parsed.success)
+		throw new Error(`${file} in ${directory} is malformed: ${parsed.error.message}`)
+	return parsed.data
 }
 
 export async function readSavedBrief(
@@ -53,40 +82,21 @@ export async function readSavedBrief(
 	return dueListenerSchema.parse(await readJsonFile(join(directory, 'brief.json')))
 }
 
-async function readResearchRecord(directory: string): Promise<ResearchRecord> {
-	const record = await readJsonFile(join(directory, 'research.json'))
-	if (
-		!record ||
-		typeof record !== 'object' ||
-		!('usages' in record) ||
-		!Array.isArray(record.usages) ||
-		!('researchSeconds' in record) ||
-		typeof record.researchSeconds !== 'number'
-	) {
-		throw new Error(`research.json in ${directory} is malformed`)
-	}
-	return record as ResearchRecord
-}
-
 export function buildMetrics(
 	research: ResearchRecord,
-	episode: EpisodeScript,
-	ttsUsdPerThousandCharacters: number
+	write: WriteRecord,
+	tts: TtsRecord,
+	episode: EpisodeScript
 ): EpisodeMetrics {
-	const last = research.usages.at(-1)
-	if (!last) throw new Error('no research usage recorded; a dry run episode cannot be saved')
-	const sum = (pick: (usage: ResearchUsage) => number): number =>
-		research.usages.reduce((total, usage) => total + pick(usage), 0)
-	const characters = ttsCharacters(episode.turns)
 	return {
-		model: last.model,
-		inputTokens: sum((usage) => usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens),
-		outputTokens: sum((usage) => usage.outputTokens),
-		webSearches: sum((usage) => usage.webSearches),
-		webFetches: sum((usage) => usage.webFetches),
-		ttsCharacters: characters,
-		llmCostUsd: llmCostUsd(research.usages),
-		ttsCostUsd: ttsCostUsd(characters, ttsUsdPerThousandCharacters),
+		model: `${research.model} + ${write.model}`,
+		inputTokens: research.inputTokens + write.inputTokens,
+		outputTokens: research.outputTokens + write.outputTokens,
+		webSearches: research.webSearches,
+		webFetches: research.webFetches,
+		ttsCharacters: ttsCharacters(episode.turns),
+		llmCostUsd: roundUsd(research.costUsd + write.costUsd),
+		ttsCostUsd: roundUsd(tts.costUsd),
 		researchSeconds: Math.round(research.researchSeconds * 10) / 10,
 	}
 }
@@ -105,16 +115,6 @@ export function zeroedMetrics(model: string): EpisodeMetrics {
 	}
 }
 
-function metricsFor(
-	mode: MetricsMode,
-	research: ResearchRecord,
-	episode: EpisodeScript
-): EpisodeMetrics {
-	return mode.kind === 'zeroed'
-		? zeroedMetrics(mode.model)
-		: buildMetrics(research, episode, mode.ttsUsdPerThousandCharacters)
-}
-
 export async function produceEpisode(
 	listener: DueListener,
 	services: PipelineServices,
@@ -126,33 +126,52 @@ export async function produceEpisode(
 
 	const research = await inStep('research', async () => {
 		if (!startsBy(options.fromStep, 'research')) {
-			const record = await readResearchRecord(directory)
-			const episode = episodeScriptSchema.parse(await readJsonFile(join(directory, 'episode.json')))
-			return { ...record, episode }
+			return {
+				notes: await readSaved(directory, 'research-notes.json', savedResearchNotesSchema),
+				record: await readSaved(directory, 'research.json', researchRecordSchema),
+			}
 		}
 		await writeJsonFile(join(directory, 'brief.json'), listener)
-		const written = await services.writer.write(listener, (attempt, reply) =>
-			writeFile(join(directory, `reply-${attempt}.txt`), reply)
-		)
-		await writeJsonFile(join(directory, 'episode.json'), written.episode)
-		const record: ResearchRecord = {
-			usages: written.usages,
-			researchSeconds: written.researchSeconds,
-		}
-		await writeJsonFile(join(directory, 'research.json'), record)
-		log(`listener ${listenerId}: "${written.episode.title}", ${written.episode.storyCount} stories`)
-		return { ...record, episode: written.episode }
+		const result = await services.researcher.research(listener)
+		await writeJsonFile(join(directory, 'research-notes.json'), result.notes)
+		await writeJsonFile(join(directory, 'research.json'), result.record)
+		return result
 	})
-	const episode = research.episode
 
-	const mixed = await (async () => {
-		if (!startsBy(options.fromStep, 'mix')) {
-			return inStep('mix', () => probeMix(join(directory, 'episode.mp3')))
+	const written = await inStep('research', async () => {
+		if (!startsBy(options.fromStep, 'write')) {
+			return {
+				episode: await readSaved(directory, 'episode.json', episodeScriptSchema),
+				record: await readSaved(directory, 'write.json', writeRecordSchema),
+			}
 		}
-		const clips = await inStep('tts', () =>
-			renderClips(episode.turns, join(directory, 'clips'), services.renderer)
+		const result = await services.writer.write(listener, research.notes, (attempt, reply) =>
+			writeFile(join(directory, `reply-${attempt}.json`), reply)
 		)
-		return inStep('mix', () => mixEpisode(directory, episode.turns, clips, date))
+		await writeJsonFile(join(directory, 'episode.json'), result.episode)
+		await writeJsonFile(join(directory, 'write.json'), result.record)
+		log(`listener ${listenerId}: "${result.episode.title}", ${result.episode.storyCount} stories`)
+		return result
+	})
+	const episode = written.episode
+
+	const { mixed, tts } = await (async () => {
+		const ttsFile = join(directory, 'tts.json')
+		if (!startsBy(options.fromStep, 'mix')) {
+			return {
+				mixed: await inStep('mix', () => probeMix(join(directory, 'episode.mp3'))),
+				tts: await inStep('tts', () => readSaved(directory, 'tts.json', ttsRecordSchema)),
+			}
+		}
+		const clips = await inStep('tts', async () => {
+			const rendered = await renderClips(episode.turns, join(directory, 'clips'), services.renderer)
+			await writeJsonFile(ttsFile, { costUsd: rendered.costUsd })
+			return rendered
+		})
+		return {
+			mixed: await inStep('mix', () => mixEpisode(directory, episode.turns, clips.files, date)),
+			tts: { costUsd: clips.costUsd },
+		}
 	})()
 
 	if (options.stopAfterMix) {
@@ -163,16 +182,7 @@ export async function produceEpisode(
 	const audioUrl = await inStep('upload', async () => {
 		const uploadFile = join(directory, 'upload.json')
 		if (!startsBy(options.fromStep, 'upload')) {
-			const saved = await readJsonFile(uploadFile)
-			if (
-				!saved ||
-				typeof saved !== 'object' ||
-				!('url' in saved) ||
-				typeof saved.url !== 'string'
-			) {
-				throw new Error(`upload.json in ${directory} is malformed`)
-			}
-			return saved.url
+			return (await readSaved(directory, 'upload.json', z.object({ url: z.string() }))).url
 		}
 		const url = await services.upload(listenerId, date, mixed)
 		await writeJsonFile(uploadFile, { url })
@@ -184,7 +194,10 @@ export async function produceEpisode(
 			...episode,
 			listenerId,
 			date,
-			metrics: metricsFor(services.metrics, research, episode),
+			metrics:
+				services.metrics.kind === 'zeroed'
+					? zeroedMetrics(services.metrics.model)
+					: buildMetrics(research.record, written.record, tts, episode),
 			audioUrl,
 			audioBytes: mixed.bytes,
 			durationSeconds: mixed.durationSeconds,

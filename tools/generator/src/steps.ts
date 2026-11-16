@@ -1,6 +1,6 @@
 import type { FailureRequest } from '../../../shared/contract.ts'
 
-export const STEPS = ['research', 'tts', 'mix', 'upload', 'save'] as const
+export const STEPS = ['research', 'write', 'tts', 'mix', 'upload', 'save'] as const
 export type Step = (typeof STEPS)[number]
 export type FailureStep = FailureRequest['step']
 

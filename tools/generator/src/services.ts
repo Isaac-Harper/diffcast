@@ -3,21 +3,24 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DueListener } from '../../../shared/contract.ts'
 import type { RunOptions } from './arguments.ts'
-import { createClaudeWriter } from './claude-writer.ts'
+import { createGateway } from 'ai'
 import { createSilentRenderer } from './clips.ts'
 import { loadJobApiConfig, loadLiveConfig } from './config.ts'
-import { createElevenLabsRenderer } from './eleven-labs.ts'
-import { createFixtureWriter } from './fixture-writer.ts'
+import { createFixtureResearcher, createFixtureWriter } from './fixture-stages.ts'
 import { createFixtureJobClient, createHttpJobClient } from './job-api.ts'
 import type { JobClient } from './job-api.ts'
 import { readSavedBrief } from './pipeline.ts'
 import type { PipelineServices } from './pipeline.ts'
+import { createResearcher } from './research.ts'
+import { createSpeechRenderer } from './speech.ts'
 import { uploadEpisode } from './upload.ts'
+import { createWriter } from './writer.ts'
 
 export const SMOKE_MODEL = 'smoke'
 
 const PACKAGE_DIRECTORY = dirname(dirname(fileURLToPath(import.meta.url)))
 const FIXTURE_EPISODE = join(PACKAGE_DIRECTORY, 'fixtures', 'episode.json')
+const FIXTURE_NOTES = join(PACKAGE_DIRECTORY, 'fixtures', 'research-notes.json')
 
 type Environment = Record<string, string | undefined>
 
@@ -32,6 +35,7 @@ export async function createServices(
 	if (options.dryRun) {
 		return {
 			jobs: createFixtureJobClient(join(PACKAGE_DIRECTORY, 'fixtures', 'due.json')),
+			researcher: createFixtureResearcher(FIXTURE_NOTES),
 			writer: createFixtureWriter(FIXTURE_EPISODE),
 			renderer: createSilentRenderer(),
 			upload: refuseUpload,
@@ -43,6 +47,7 @@ export async function createServices(
 		const jobs = createHttpJobClient({ url: config.jobUrl, token: config.jobToken })
 		return {
 			jobs,
+			researcher: createFixtureResearcher(FIXTURE_NOTES),
 			writer: createFixtureWriter(FIXTURE_EPISODE),
 			renderer: createSilentRenderer(),
 			upload: (listenerId, date, mixed) => uploadEpisode(jobs, listenerId, date, mixed),
@@ -51,20 +56,27 @@ export async function createServices(
 	}
 	const config = loadLiveConfig(environment)
 	const jobs = createHttpJobClient({ url: config.jobUrl, token: config.jobToken })
+	const gateway = createGateway({ apiKey: config.gatewayApiKey })
+	const prompt = (name: string) => readFile(join(PACKAGE_DIRECTORY, name), 'utf8')
 	return {
 		jobs,
-		writer: createClaudeWriter({
-			apiKey: config.gatewayApiKey,
-			model: config.model,
-			systemPrompt: await readFile(join(PACKAGE_DIRECTORY, 'prompt.md'), 'utf8'),
+		researcher: createResearcher({
+			gateway,
+			model: config.researchModel,
+			instructions: await prompt('research-prompt.md'),
 		}),
-		renderer: createElevenLabsRenderer({
-			apiKey: config.elevenLabsApiKey,
+		writer: createWriter({
+			gateway,
+			model: config.writerModel,
+			instructions: await prompt('writer-prompt.md'),
+		}),
+		renderer: createSpeechRenderer({
+			gateway,
 			model: config.ttsModel,
 			voices: { host: config.hostVoice, cohost: config.cohostVoice },
 		}),
 		upload: (listenerId, date, mixed) => uploadEpisode(jobs, listenerId, date, mixed),
-		metrics: { kind: 'measured', ttsUsdPerThousandCharacters: config.ttsUsdPerThousandCharacters },
+		metrics: { kind: 'measured' },
 	}
 }
 

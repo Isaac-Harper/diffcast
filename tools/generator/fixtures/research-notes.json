@@ -1,0 +1,31 @@
+{
+	"stories": [
+		{
+			"headline": "A sample library ships a patch release",
+			"whatHappened": "The sample library released a patch that fixes how error messages are formatted when a nested object fails to parse. No public API changed and the release notes say no migration is needed.",
+			"whyItMatters": "The listener uses zod, and snapshot tests that print validation errors would show the formatting change first.",
+			"dates": "2026-11-15",
+			"interests": ["Developer tools and web development"],
+			"packages": ["zod"],
+			"kind": "stack",
+			"challenges": null,
+			"sources": [{ "title": "Example release notes", "url": "https://example.com/releases/1" }]
+		},
+		{
+			"headline": "A framework minor release is planned for later this week",
+			"whatHappened": "The framework team said a minor release is planned for later this week.",
+			"whyItMatters": "The listener runs a Next.js app and caching default changes would need migration work.",
+			"dates": "Announced 2026-11-15, release expected later this week",
+			"interests": ["Developer tools and web development"],
+			"packages": ["next"],
+			"kind": "watch",
+			"challenges": null,
+			"sources": [{ "title": "Example roadmap", "url": "https://example.com/roadmap" }]
+		}
+	],
+	"quietDay": "",
+	"fetched": [
+		{ "title": "Example release notes", "url": "https://example.com/releases/1" },
+		{ "title": "Example roadmap", "url": "https://example.com/roadmap" }
+	]
+}
