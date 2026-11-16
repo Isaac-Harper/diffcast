@@ -20,6 +20,10 @@ Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
 
 `node scripts/stripe-setup.mjs --out <file>` creates or updates, idempotently, the Diffcast Standard product and its $25 monthly price (lookup key `diffcast_standard_monthly`), the billing portal configuration and the webhook endpoint at `https://diffcast.fm/api/stripe/webhook`. It uses `STRIPE_SECRET_KEY` and writes the ids (and a new endpoint's signing secret) to the file, never to the terminal.
 
+## MCP server
+
+Subscribers connect a coding agent to `https://diffcast.fm/api/mcp` (OAuth 2.1 with PKCE, Client ID Metadata Documents or dynamic registration). Setup for users is on `/agents`. To check a running app end to end: `node scripts/mcp-e2e-listener.mjs create <cookie-file>`, `DIFFCAST_E2E_COOKIE=$(cat <cookie-file>) node scripts/mcp-e2e.mjs <base-url>`, then `node scripts/mcp-e2e-listener.mjs delete`.
+
 ## License
 
 MIT
