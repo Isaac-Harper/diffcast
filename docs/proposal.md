@@ -1,5 +1,12 @@
 # Dev Podcast Service: Product Proposal
 
+## Pricing and schedule update, 2026-11-16
+
+- Standard is $25 a month: ElevenLabs voices, about 10 minutes, every day or the days the listener picks. Pro is $39 a month: 15 minute episodes, with on demand episodes later. ElevenLabs voices on both tiers.
+- Episodes run every day of the week. All seven days are on by default and any day can be turned off. Weekdays are the daily news, Saturday is the week in review for that listener, Sunday a short look at the week ahead. After a day off, the next episode covers everything since the listener's last one.
+- Measured cost per episode with Gemini research, a Sonnet writer and ElevenLabs Turbo voice: about $0.56 on a weekday, about $0.35 on a weekend.
+- The $15 and $30 prices below are superseded.
+
 Nov 15, 2026 · Isaac Harper
 
 ## Summary
