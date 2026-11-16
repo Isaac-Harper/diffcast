@@ -12,6 +12,7 @@ function listener(listenerId: number): DueListener {
 		minutes: 10,
 		stack: [],
 		focus: '',
+		interests: [],
 		recent: [],
 		feedback: [],
 	}

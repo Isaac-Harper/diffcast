@@ -28,11 +28,43 @@ function fenced(json: string): string {
 	return `${ticks}json\n${json}\n${ticks}`
 }
 
+function windowLines(listener: DueListener): string[] {
+	const lines =
+		weekdayName(listener.date) === 'Monday'
+			? [
+					`It is Monday: cover the weekend, everything since the morning of ${previousWeekday(listener.date)}.`,
+				]
+			: ['Cover the last 24 hours.']
+	const last = listener.recent[0]
+	lines.push(
+		last
+			? `The previous episode was on ${last.date}; "since the last episode" is fine to say.`
+			: 'This is the first episode: never say "since the last episode" or refer to earlier episodes.'
+	)
+	return lines
+}
+
+function interestLines(listener: DueListener): string[] {
+	if (listener.interests.length === 0) {
+		return [
+			'The listener has no interests listed: choose from general tech and AI news for developers.',
+		]
+	}
+	const withTakes = listener.interests.filter((interest) => interest.take !== null)
+	return [
+		`Interests (${listener.interests.length}): ${listener.interests.map((interest) => interest.topic).join('; ')}.`,
+		withTakes.length
+			? `Interests with a take: ${withTakes.map((interest) => interest.topic).join('; ')}.`
+			: 'No interest has a take, so there is no stated position to challenge today.',
+	]
+}
+
 export function buildBrief(listener: DueListener): string {
 	const full = wordRange(listener.minutes, 3)
 	const half = wordRange(listener.minutes, 1)
 	const quiet = wordRange(listener.minutes, 0)
 	const listenerData = {
+		interests: listener.interests,
 		stack: listener.stack,
 		focus: listener.focus,
 		recent: listener.recent,
@@ -40,7 +72,9 @@ export function buildBrief(listener: DueListener): string {
 	}
 	return [
 		`Today is ${weekdayName(listener.date)} ${listener.date} in the listener's time zone (${listener.timezone}).`,
-		`Cover what happened since the previous weekday's episode on ${previousWeekday(listener.date)}.`,
+		...windowLines(listener),
+		'',
+		...interestLines(listener),
 		'',
 		`Length for this listener (${listener.minutes} minute show), counted over all turns:`,
 		`- storyCount 3 or more: about ${full.target} words (${full.min} to ${full.max}).`,

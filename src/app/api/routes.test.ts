@@ -55,6 +55,20 @@ vi.mock('@/lib/store/listeners', () => ({
 	getListener: async (id: number) => state.listeners.find((listener) => listener.id === id) ?? null,
 	listenerExists: async (id: number) => state.listeners.some((listener) => listener.id === id),
 }))
+vi.mock('@/lib/store/interests', () => ({
+	activeInterests: async (listenerIds: number[]) =>
+		new Map(
+			listenerIds.map((id) => [
+				id,
+				id === 1
+					? [
+							{ topic: 'AI models and agents', take: 'Agents are overhyped', note: null },
+							{ topic: 'Open source', take: null, note: 'Licensing fights' },
+						]
+					: [],
+			])
+		),
+}))
 vi.mock('@/lib/store/episodes', () => ({
 	existingEpisodeKeys: async (pairs: { listenerId: number; date: string }[]) =>
 		new Set(
@@ -159,6 +173,8 @@ const script = {
 		{
 			heading: 'Next 16.5',
 			kind: 'news',
+			challenges: null,
+			topics: ['Developer tools and web development'],
 			packages: ['next'],
 			sources: [{ title: 'Notes', url: 'https://nextjs.org/blog' }],
 		},
@@ -305,7 +321,7 @@ describe('job api auth', () => {
 describe('job api bodies', () => {
 	beforeEach(reset)
 
-	it('lists due listeners with recent episodes and feedback', async () => {
+	it('lists due listeners with interests, recent episodes and feedback', async () => {
 		const response = await due(request('/api/jobs/due?now=2026-11-16T12:00:00Z', { auth: bearer }))
 		expect(response.status).toBe(200)
 		const body = (await response.json()) as { listeners: { listenerId: number; date: string }[] }
@@ -317,6 +333,10 @@ describe('job api bodies', () => {
 				minutes: 10,
 				stack: [{ name: 'next', ecosystem: 'npm' }],
 				focus: 'APIs',
+				interests: [
+					{ topic: 'AI models and agents', take: 'Agents are overhyped', note: null },
+					{ topic: 'Open source', take: null, note: 'Licensing fights' },
+				],
 				recent: [
 					{
 						date: '2026-11-13',

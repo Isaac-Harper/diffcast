@@ -6,7 +6,7 @@ export const SPEAKER_NAMES: Record<(typeof SPEAKERS)[number], string> = {
 	cohost: 'Theo',
 }
 
-export const SEGMENT_KINDS = ['news', 'update', 'watch'] as const
+export const SEGMENT_KINDS = ['news', 'stack', 'update', 'challenge', 'wildcard', 'watch'] as const
 
 export const WORDS_PER_MINUTE = 150
 export const MAX_AUDIO_BYTES = 60 * 1024 * 1024
@@ -35,6 +35,8 @@ export const sourceSchema = z.object({
 export const segmentSchema = z.object({
 	heading: z.string().trim().min(1).max(200),
 	kind: z.enum(SEGMENT_KINDS),
+	challenges: z.string().trim().max(500).nullable(),
+	topics: z.array(z.string().trim().min(1).max(100)).max(10),
 	packages: z.array(z.string().trim().min(1).max(214)).max(20),
 	sources: z.array(sourceSchema).min(1).max(20),
 })
@@ -72,6 +74,12 @@ export const recentEpisodeSchema = z.object({
 	),
 })
 
+export const interestSchema = z.object({
+	topic: z.string().trim().min(1).max(100),
+	take: z.string().trim().max(500).nullable(),
+	note: z.string().trim().max(500).nullable(),
+})
+
 export const dueListenerSchema = z.object({
 	listenerId: z.number().int().positive(),
 	date: day,
@@ -79,6 +87,7 @@ export const dueListenerSchema = z.object({
 	minutes: z.number().int().min(3).max(20),
 	stack: z.array(dependencySchema).max(500),
 	focus: z.string().max(2000),
+	interests: z.array(interestSchema).max(40),
 	recent: z.array(recentEpisodeSchema).max(15),
 	feedback: z.array(z.object({ date: day, note: z.string() })).max(10),
 })
@@ -109,6 +118,7 @@ export const failureRequestSchema = z.object({
 })
 
 export type Dependency = z.infer<typeof dependencySchema>
+export type Interest = z.infer<typeof interestSchema>
 export type Segment = z.infer<typeof segmentSchema>
 export type Turn = z.infer<typeof turnSchema>
 export type EpisodeScript = z.infer<typeof episodeScriptSchema>

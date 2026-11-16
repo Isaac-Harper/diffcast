@@ -14,6 +14,8 @@ function script(overrides: Record<string, unknown> = {}, turnWords: number[] = [
 			{
 				heading: 'Heading',
 				kind: 'news',
+				challenges: null,
+				topics: ['Developer tools and web development'],
 				packages: ['zod'],
 				sources: [{ title: 'Notes', url: 'https://example.com' }],
 			},
@@ -49,14 +51,35 @@ describe('checkScript', () => {
 		expect(check.ok).toBe(true)
 	})
 
+	it('accepts every segment kind without requiring a challenge or wildcard', () => {
+		const source = [{ title: 'Notes', url: 'https://example.com' }]
+		const segments = (['stack', 'challenge', 'wildcard', 'update', 'watch'] as const).map(
+			(kind) => ({
+				heading: kind,
+				kind,
+				challenges: kind === 'challenge' ? 'Agents are overhyped' : null,
+				topics: kind === 'stack' ? [] : ['AI models and agents'],
+				packages: kind === 'stack' ? ['zod'] : [],
+				sources: source,
+			})
+		)
+		expect(checkScript(script({ segments }, [150, 150, 150, 150]), 5).ok).toBe(true)
+		expect(checkScript(script({}, [150, 150, 150, 150]), 5).ok).toBe(true)
+	})
+
 	it('reports schema issues with their path', () => {
 		const check = checkScript(
 			script({ segments: [{ heading: 'H', kind: 'news', packages: [], sources: [] }] }),
 			3
 		)
 		expect(check.ok).toBe(false)
-		if (!check.ok)
+		if (!check.ok) {
 			expect(check.problems.some((problem) => problem.startsWith('segments.0.sources'))).toBe(true)
+			expect(check.problems.some((problem) => problem.startsWith('segments.0.challenges'))).toBe(
+				true
+			)
+			expect(check.problems.some((problem) => problem.startsWith('segments.0.topics'))).toBe(true)
+		}
 	})
 
 	it('rejects a turn over 180 words', () => {

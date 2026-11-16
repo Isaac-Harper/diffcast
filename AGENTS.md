@@ -1,10 +1,10 @@
 # Diffcast
 
-Paid daily two host tech and AI news podcast for developers, personalized by each listener's interests (topics with optional takes) with their stack as one extra signal, plus a planned remote MCP server for agent context sync. Tagline in use (proposed 2026-11-16): "What changed in your corner of tech since yesterday." Spun out of the podcast feature in `~/Development/cvzx`. Name Diffcast, chosen 2026-11-16; intended domain diffcast.fm (not yet bought; diffcast.dev is taken).
+Paid daily two host tech and AI news podcast for developers, personalized by each listener's interests (topics with an optional take and note) with their stack as one extra signal, plus a planned remote MCP server for agent context sync. Tagline in use (proposed 2026-11-16): "What changed in your corner of tech since yesterday." Spun out of the podcast feature in `~/Development/cvzx`. Name Diffcast, chosen 2026-11-16; domain diffcast.fm (bought at Porkbun 2026-11-16; diffcast.dev is taken).
 
 ## Status
 
-Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web app live with Neon and a private Blob store; migration `001_phase0.sql` applied; generator runs hourly on fw13. An end to end `--smoke` run from fw13 against production passed (its episode was then deleted). Research runs through Vercel AI Gateway (Anthropic Messages endpoint, key `AI_GATEWAY_API_KEY` in `/etc/diffcast/env`). Plan and gates: `docs/agents/phases.md`. Product proposal: `docs/proposal.md`; the review that amends it: `docs/agents/advisory-2026-11-16.md` (read its Blocking section before touching privacy, TTS or the audio route).
+Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web app live with Neon and a private Blob store; migration `001_phase0.sql` applied (`003_interests.sql` is not applied yet: run `pnpm db:migrate` when the interests branch merges); generator runs hourly on fw13. An end to end `--smoke` run from fw13 against production passed (its episode was then deleted). Research runs through Vercel AI Gateway (Anthropic Messages endpoint, key `AI_GATEWAY_API_KEY` in `/etc/diffcast/env`). Plan and gates: `docs/agents/phases.md`. Product proposal: `docs/proposal.md`; the review that amends it: `docs/agents/advisory-2026-11-16.md` (read its Blocking section before touching privacy, TTS or the audio route).
 
 ## Operations
 
@@ -18,7 +18,7 @@ Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web
 - Next.js 16 App Router, React 19, TypeScript strict (extra flags match cvzx), Tailwind 4, pnpm, Node 22.
 - Prettier via `@monogram/prettier-config`, ESLint flat config from `eslint-config-next`, vitest (`vitest.config.mts`, `src/**/*.test.{ts,tsx}`; component tests opt into jsdom with a `// @vitest-environment jsdom` docblock, setup in `src/test/setup.ts`).
 - `cacheComponents` is on: anything reading cookies, headers, params or the database renders inside `<Suspense>` (the admin layout wraps every admin page in one).
-- Neon Postgres via `@neondatabase/serverless` (`src/lib/db.ts`, tagged template `sql`). Dates are selected as `::text`. Migrations are plain SQL in `db/migrations/`, applied by `pnpm db:migrate` (tracked in `schema_migrations`).
+- Neon Postgres via `@neondatabase/serverless` (`src/lib/db.ts`, tagged template `sql`, and `transaction([...])` for several statements at once). Dates are selected as `::text`. Migrations are plain SQL in `db/migrations/`, applied by `pnpm db:migrate` (tracked in `schema_migrations`).
 - Private Vercel Blob store for audio. No response or page ever carries a raw Blob URL; listeners get 10 minute signed URLs through the audio route.
 - `@shared/*` aliases `shared/` (the job API contract, `shared/contract.ts`). Root `tsconfig.json` excludes `tools/`, which has its own checks.
 - Env vars: `.env.example` lists every one the app reads.
@@ -37,8 +37,10 @@ Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web
 - `src/app/api/jobs/{due,upload,episodes,failures}`: job API for the generator, bodies from `shared/contract.ts`. Due rule in `src/lib/due.ts`, assembly in `src/lib/jobs.ts`.
 - `src/app/api/feed/[token]`, `src/app/api/audio/[token]/[file]`, `src/app/l/[token]`: listener surfaces keyed by a feed token (`src/lib/feed-tokens.ts`, lookup and miss throttle in `src/lib/feed-access.ts`; every surface, the page and its actions included, goes through `feedAccess`, which checks the throttle before the lookup). Every episode lookup is scoped to the token's listener. A token works only while it is unrevoked and its listener is active.
 - `src/app/admin/`: every page and action calls `requireSession()` itself, on top of the layout and proxy. Gate dashboard (home; episodes with `metrics.model` `smoke` and their spot checks are left out of every metric), listeners (form, stack paste, feed tokens), episodes (detail with spot checks), runs. `src/app/login/`: owner password login.
-- `src/lib/`: pure rules (`time.ts`, `due.ts`, `feed.ts`, `stack-parser.ts`, `gate.ts`, `forms.ts`, `blob-rules.ts`, `session.ts`), Next and service glue (`auth.ts`, `blob.ts`, `http.ts`), queries in `store/`.
-- `db/migrations/001_phase0.sql`, `db/migrate.mjs`: schema and runner.
+- `src/lib/`: pure rules (`time.ts`, `due.ts`, `feed.ts`, `stack-parser.ts`, `interests.ts`, `gate.ts`, `forms.ts`, `blob-rules.ts`, `session.ts`), Next and service glue (`auth.ts`, `blob.ts`, `http.ts`), queries in `store/`.
+- Interests: `interests` table (per listener, unique topic case insensitive, `sort` order, `active`). `src/lib/interests.ts` holds `DEFAULT_INTERESTS` and `parseInterestRows`, which reads an editor posting parallel fields `topic[]`, `take[]`, `note[]`, `active[]` (`INTEREST_FIELDS`; `active[]` is `true` or `false` per row, so every row posts all four). `src/lib/store/interests.ts`: `listInterests`, `activeInterests` (one query for the due list), `saveInterests` (replaces the set in a transaction). `addListener` seeds the defaults. The due list sends each listener's active interests in sort order.
+- Segment kinds (`shared/contract.ts`): `news`, `stack` (only when something real changed in their packages), `update`, `challenge` (tests a take, quoted in `challenges`), `wildcard`, `watch`. Every segment carries `topics` (interests it serves). Episodes saved before 2026-11-16 lack `challenges` and `topics` in their stored segments; readers of stored segments must not assume them.
+- `db/migrations/` (`001_phase0.sql`, `002_waitlist.sql`, `003_interests.sql`, which seeds the defaults for existing listeners), `db/migrate.mjs`: schema and runner.
 - `public/cover.png`: 1400 square feed artwork (dark tile, the two diff bars, wordmark, tagline); redraw it if the tagline changes.
 - `docs/proposal.md`: original proposal (2026-11-15). Its name section recommends Lockfile; Diffcast was picked instead.
 - `docs/agents/`: phase plan and advisory review.
