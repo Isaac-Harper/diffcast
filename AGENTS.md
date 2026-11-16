@@ -1,3 +1,28 @@
+# Lockfile
+
+Paid daily two host podcast for developers about their own stack, with a remote MCP server for agent context sync. Spun out of the podcast feature in `~/Development/cvzx`. Working name Lockfile, intended domain lockfile.fm (not yet bought).
+
+## Status
+
+Phase 0 (prototype) not started. The repo is a Next.js 16 skeleton with a placeholder landing page. Plan and gates: `docs/agents/phases.md`. Product proposal: `docs/proposal.md`; the review that amends it: `docs/agents/advisory-2026-11-16.md` (read its Blocking section before touching privacy, TTS or the audio route).
+
+## Stack
+
+- Next.js 16 App Router, React 19, TypeScript strict (extra flags match cvzx), Tailwind 4, pnpm, Node 22.
+- Prettier via `@monogram/prettier-config`, ESLint flat config from `eslint-config-next`, vitest.
+- Vercel project `lockfile` (`prj_vFI5gJAg6BtIDq0cg8lgcyMoCBAS`) in the personal team `isaacs-projects-b02601f4` (`team_SdyKzz4shtFWP7nhrEYgp8JK`). Git integration: pushing `main` deploys production.
+- GitHub `Isaac-Harper/lockfile`, public, MIT.
+
+## File map
+
+- `src/app/page.tsx`: placeholder landing page.
+- `docs/proposal.md`: original proposal (2026-11-15).
+- `docs/agents/`: phase plan and advisory review.
+
+## Checks
+
+`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

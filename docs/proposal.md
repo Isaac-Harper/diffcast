@@ -175,7 +175,7 @@ About 10 weeks part-time to a paid launch, with a go/no-go gate between each pha
 
 If a gate fails, fix that phase before moving on; the prototype gate is the cheapest place to kill the idea.
 
-(The phase table did not survive the paste into the repo; see `docs/agents/phases.md` for the working phase plan.)
+The working phase plan is in `docs/agents/phases.md`.
 
 ## Name ideas
 
