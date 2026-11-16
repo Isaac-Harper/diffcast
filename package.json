@@ -13,10 +13,12 @@
 		"db:migrate": "node db/migrate.mjs"
 	},
 	"dependencies": {
+		"@modelcontextprotocol/server": "2.4.0",
 		"@neondatabase/serverless": "^1.2.1",
 		"@ui-sdk/core": "0.1.0-beta.3",
 		"@ui-sdk/react": "0.1.0-beta.3",
 		"@vercel/blob": "^2.9.0",
+		"mcp-handler": "2.3.1",
 		"next": "16.4.6",
 		"react": "19.3.0",
 		"react-dom": "19.3.0",
@@ -25,6 +27,7 @@
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
+		"@modelcontextprotocol/client": "2.4.0",
 		"@monogram/prettier-config": "^0.4.0",
 		"@tailwindcss/turbopack": "4.3.3",
 		"@testing-library/dom": "^10.4.2",

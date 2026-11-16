@@ -1,7 +1,52 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { saveMyDays, saveMyInterests, submitFeedback } from './actions'
+import { LISTENER_COOKIE, listenerSigningKey, verifyListenerSession } from '@/lib/listener-session'
+import { openMyAccount, saveMyDays, saveMyInterests, submitFeedback } from './actions'
+
+describe('open my account', () => {
+	beforeEach(() => {
+		vi.stubEnv('DIFFCAST_SESSION_SECRET', 's'.repeat(40))
+		state.tokens = new Map([[hashFeedToken('1'.repeat(64)), { id: 11, listenerId: 1 }]])
+		state.cookies = []
+		state.remembered = undefined
+		state.ip = '192.0.2.60'
+		feedMisses.clear()
+	})
+
+	async function open(values: Record<string, string>): Promise<string> {
+		const data = new FormData()
+		for (const [key, value] of Object.entries(values)) data.set(key, value)
+		try {
+			await openMyAccount(data)
+		} catch (error) {
+			const digest = (error as { digest?: string }).digest ?? ''
+			if (digest.startsWith('NEXT_REDIRECT')) return digest.split(';')[2] ?? ''
+			throw error
+		}
+		throw new Error('openMyAccount did not redirect')
+	}
+
+	it('signs in the token listener and goes to the account', async () => {
+		expect(await open({ token: '1'.repeat(64) })).toBe('/account')
+		const session = state.cookies.find((cookie) => cookie.name === LISTENER_COOKIE)
+		expect(verifyListenerSession(session?.value, listenerSigningKey())).toBe(1)
+	})
+
+	it('honours only safe next paths, then the remembered one', async () => {
+		const authorize = '/oauth/authorize?client_id=a&state=b'
+		expect(await open({ token: '1'.repeat(64), next: authorize })).toBe(authorize)
+		expect(await open({ token: '1'.repeat(64), next: 'https://evil.example/' })).toBe('/account')
+		state.remembered = authorize
+		expect(await open({ token: '1'.repeat(64) })).toBe(authorize)
+		expect(state.remembered).toBeUndefined()
+	})
+
+	it('sets no session for a bad token', async () => {
+		expect(await open({ token: '9'.repeat(64) })).toBe('/signin?error=expired')
+		expect(state.cookies).toEqual([])
+	})
+})
 
 const state = vi.hoisted(() => ({
 	tokens: new Map<string, { id: number; listenerId: number }>(),
@@ -9,6 +54,8 @@ const state = vi.hoisted(() => ({
 	interests: [] as { listenerId: number; rows: unknown }[],
 	days: [] as { listenerId: number; days: number[] }[],
 	ip: '192.0.2.50',
+	cookies: [] as { name: string; value: string }[],
+	remembered: undefined as string | undefined,
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -19,6 +66,18 @@ vi.mock('@/lib/db', () => ({
 vi.mock('next/cache', () => ({ refresh: () => undefined }))
 vi.mock('next/headers', () => ({
 	headers: async () => new Headers({ 'x-forwarded-for': state.ip }),
+	cookies: async () => ({
+		get: (name: string) =>
+			name === 'diffcast_return' && state.remembered
+				? { name, value: state.remembered }
+				: undefined,
+		set: (name: string, value: string) => {
+			state.cookies.push({ name, value })
+		},
+		delete: (name: string) => {
+			if (name === 'diffcast_return') state.remembered = undefined
+		},
+	}),
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
 	findServedFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,

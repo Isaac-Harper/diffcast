@@ -1,7 +1,9 @@
 'use server'
 
 import { refresh } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { feedAccess } from '@/lib/feed-access'
+import { returnPathAfterSignIn, startListenerSession } from '@/lib/listener-auth'
 import type { MissStatus } from '@/lib/feed-access'
 import { parseInterestsEditor } from '@/lib/interests-form'
 import { parseDaysForm, parseFeedbackForm, text, wholeId } from '@/lib/forms'
@@ -42,6 +44,15 @@ export async function saveMyInterests(_previous: FormResult, form: FormData): Pr
 	await saveInterests(access.listenerId, parsed.input)
 	refresh()
 	return { status: 'saved', message: 'Interests saved. They shape your next episode.' }
+}
+
+export async function openMyAccount(form: FormData): Promise<void> {
+	const access = await feedAccess(await clientIp(), text(form, 'token', 64))
+	if (typeof access === 'number') {
+		redirect(access === 429 ? '/signin?error=throttled' : '/signin?error=expired')
+	}
+	await startListenerSession(access.listenerId)
+	redirect(await returnPathAfterSignIn(form.get('next')))
 }
 
 export async function saveMyDays(_previous: FormResult, form: FormData): Promise<FormResult> {

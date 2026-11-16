@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { SiteFooter, SiteHeader } from '@/app/components/site-chrome'
+import { safeReturnPath } from '@/lib/return-path'
 import { SignInForm } from './signin-form'
 
 export const metadata: Metadata = {
@@ -9,12 +10,32 @@ export const metadata: Metadata = {
 	robots: { index: false, follow: false },
 }
 
-async function Notice({ searchParams }: { searchParams: PageProps<'/signin'>['searchParams'] }) {
-	const query = await searchParams
+async function Notice({
+	query,
+	next,
+}: {
+	query: Record<string, string | string[] | undefined>
+	next: string | null
+}) {
+	if (next?.startsWith('/oauth/authorize')) {
+		return (
+			<p role="status" className="card mb-6 text-sm text-pretty">
+				Sign in to connect your agent. Without email, open your listener page (the link in any
+				episode&apos;s show notes) and press Open my account; you will come straight back here.
+			</p>
+		)
+	}
 	if (query['error'] === 'expired') {
 		return (
 			<p role="alert" className="card mb-6 border-warn-line bg-warn-soft text-sm">
 				That sign in link has expired or was already used. Ask for a new one below.
+			</p>
+		)
+	}
+	if (query['error'] === 'throttled') {
+		return (
+			<p role="alert" className="card mb-6 border-warn-line bg-warn-soft text-sm">
+				Too many attempts from this network. Wait ten minutes and try again.
 			</p>
 		)
 	}
@@ -28,6 +49,23 @@ async function Notice({ searchParams }: { searchParams: PageProps<'/signin'>['se
 	return null
 }
 
+async function SignInArea({
+	searchParams,
+}: {
+	searchParams: PageProps<'/signin'>['searchParams']
+}) {
+	const query = await searchParams
+	const next = safeReturnPath(query['next'])
+	return (
+		<>
+			<Notice query={query} next={next} />
+			<div className="rounded-card border border-line bg-surface p-6">
+				<SignInForm next={next} />
+			</div>
+		</>
+	)
+}
+
 export default function SignInPage({ searchParams }: PageProps<'/signin'>) {
 	return (
 		<>
@@ -38,11 +76,8 @@ export default function SignInPage({ searchParams }: PageProps<'/signin'>) {
 					Enter the email you subscribed with and we will send a one time link. No password.
 				</p>
 				<Suspense>
-					<Notice searchParams={searchParams} />
+					<SignInArea searchParams={searchParams} />
 				</Suspense>
-				<div className="rounded-card border border-line bg-surface p-6">
-					<SignInForm />
-				</div>
 				<p className="mt-6 text-sm text-muted">
 					Not subscribed yet?{' '}
 					<Link href="/start" className="font-medium text-fg">

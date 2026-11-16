@@ -10,7 +10,7 @@ import type { SignInResult } from './actions'
 
 const IDLE: SignInResult = { status: 'idle', message: '' }
 
-export function SignInForm() {
+export function SignInForm({ next }: { next: string | null }) {
 	const [result, action] = useActionState(requestSignIn, IDLE)
 	if (result.status === 'saved') {
 		return (
@@ -21,6 +21,7 @@ export function SignInForm() {
 	}
 	return (
 		<form action={action} className="space-y-4">
+			{next && <input type="hidden" name="next" value={next} />}
 			<Field name="email">
 				<FieldLabel>Email</FieldLabel>
 				<Input type="email" required autoComplete="email" spellCheck={false} maxLength={320} />

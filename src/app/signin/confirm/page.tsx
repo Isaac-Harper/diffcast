@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { SiteFooter, SiteHeader } from '@/app/components/site-chrome'
 import { SubmitButton } from '@/app/components/submit-button'
+import { safeReturnPath } from '@/lib/return-path'
 import { confirmSignIn } from '../actions'
 
 export const metadata: Metadata = {
@@ -15,10 +16,13 @@ async function ConfirmForm({
 }: {
 	searchParams: PageProps<'/signin/confirm'>['searchParams']
 }) {
-	const raw = (await searchParams)['token']
+	const query = await searchParams
+	const raw = query['token']
+	const next = safeReturnPath(query['next'])
 	return (
 		<form action={confirmSignIn} className="mt-8">
 			<input type="hidden" name="token" value={typeof raw === 'string' ? raw : ''} />
+			{next && <input type="hidden" name="next" value={next} />}
 			<SubmitButton variant="solid" size="lg">
 				Sign in to Diffcast
 			</SubmitButton>

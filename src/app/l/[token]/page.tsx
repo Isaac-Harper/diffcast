@@ -2,10 +2,10 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import Link from 'next/link'
 import { CopyButton } from '@/app/components/copy-button'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
 import { SegmentList } from '@/app/components/segment-list'
+import { SubmitButton } from '@/app/components/submit-button'
 import { Wordmark } from '@/app/components/wordmark'
 import { feedAccess } from '@/lib/feed-access'
 import { episodeAudioUrl, feedUrl } from '@/lib/feed-tokens'
@@ -17,7 +17,7 @@ import { latestFeedbackForListener } from '@/lib/store/feedback'
 import { listInterests } from '@/lib/store/interests'
 import { getListener } from '@/lib/store/listeners'
 import { forwardedIp } from '@/lib/throttle'
-import { saveMyDays, saveMyInterests } from './actions'
+import { openMyAccount, saveMyDays, saveMyInterests } from './actions'
 import { FeedbackForm } from './forms'
 
 export const metadata: Metadata = {
@@ -47,13 +47,13 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 			<header className="space-y-1">
 				<Wordmark className="text-sm" />
 				<h1 className="text-title font-semibold text-balance">Diffcast for {listener.name}</h1>
-				<p className="text-sm text-muted">
-					Billing, your stack and new feed links live in{' '}
-					<Link href="/account" className="font-medium text-fg">
-						your account
-					</Link>
-					.
-				</p>
+				<form action={openMyAccount} className="flex flex-wrap items-center gap-3 pt-2">
+					<input type="hidden" name="token" value={token} />
+					<SubmitButton>Open my account</SubmitButton>
+					<span className="text-sm text-muted">
+						Billing, your stack, new feed links and connecting your coding agent.
+					</span>
+				</form>
 			</header>
 
 			<section className="card space-y-3" aria-labelledby="interests-heading">

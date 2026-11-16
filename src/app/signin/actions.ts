@@ -5,7 +5,12 @@ import { redirect } from 'next/navigation'
 import { currentMailer } from '@/lib/email/resend-mailer'
 import { signInEmail } from '@/lib/email/templates'
 import { requestOrigin } from '@/lib/http'
-import { endListenerSession, startListenerSession } from '@/lib/listener-auth'
+import {
+	endListenerSession,
+	returnPathAfterSignIn,
+	startListenerSession,
+} from '@/lib/listener-auth'
+import { safeReturnPath } from '@/lib/return-path'
 import {
 	hashLoginToken,
 	isLoginToken,
@@ -40,7 +45,8 @@ export async function requestSignIn(
 			hashLoginToken(token),
 			new Date(Date.now() + LOGIN_TOKEN_TTL_MS)
 		)
-		const url = `${requestOrigin(await headers())}/signin/confirm?token=${token}`
+		const next = safeReturnPath(form.get('next'))
+		const url = `${requestOrigin(await headers())}/signin/confirm?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
 		await currentMailer().send(signInEmail({ to: listener.email, url }))
 	}
 	return { status: 'saved', message: SIGN_IN_SENT }
@@ -52,7 +58,7 @@ export async function confirmSignIn(form: FormData): Promise<void> {
 	const listenerId = await consumeLoginToken(hashLoginToken(token))
 	if (listenerId === null) redirect('/signin?error=expired')
 	await startListenerSession(listenerId)
-	redirect('/account')
+	redirect(await returnPathAfterSignIn(form.get('next')))
 }
 
 export async function signOut(): Promise<void> {

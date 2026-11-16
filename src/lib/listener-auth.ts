@@ -7,6 +7,7 @@ import {
 	signListenerSession,
 	verifyListenerSession,
 } from './listener-session'
+import { RETURN_COOKIE, safeReturnPath } from './return-path'
 
 export async function sessionListenerId(): Promise<number | null> {
 	const token = (await cookies()).get(LISTENER_COOKIE)?.value
@@ -27,6 +28,13 @@ export async function startListenerSession(listenerId: number): Promise<void> {
 		path: '/',
 		maxAge: LISTENER_SESSION_MAX_AGE,
 	})
+}
+
+export async function returnPathAfterSignIn(next: unknown): Promise<string> {
+	const jar = await cookies()
+	const remembered = jar.get(RETURN_COOKIE)?.value
+	jar.delete(RETURN_COOKIE)
+	return safeReturnPath(next) ?? safeReturnPath(remembered) ?? '/account'
 }
 
 export async function endListenerSession(): Promise<void> {
