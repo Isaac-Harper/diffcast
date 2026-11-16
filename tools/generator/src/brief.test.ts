@@ -127,7 +127,7 @@ describe('buildWriterInput', () => {
 		const input = buildWriterInput(base, notes(['news', 'challenge', 'watch', 'wildcard']))
 		expect(input.startsWith('## Length target')).toBe(true)
 		expect(input).toContain(
-			'The notes hold 3 stories besides any wildcard. If you cover them all, write about 1500 words in total, in about 38 turns'
+			'The notes hold 3 stories besides any wildcard. If you cover them all, write about 1500 words in total, in about 47 turns'
 		)
 		expect(input).toContain('The accepted range is 1200 to 1725.')
 		expect(input).toContain('Aim for 1500 words, not the minimum')
@@ -138,17 +138,17 @@ describe('buildWriterInput', () => {
 			{ ...base, date: '2026-11-22', format: 'week_ahead' },
 			notes(['watch', 'watch', 'watch'])
 		)
-		expect(weekAhead).toContain('write about 600 words in total, in about 15 turns')
+		expect(weekAhead).toContain('write about 600 words in total, in about 19 turns')
 		expect(weekAhead).toContain('a script under 480 words is rejected')
 		expect(
 			weekAhead
 				.trimEnd()
 				.endsWith(
-					'Write at least 15 turns of about 40 words each, about 600 words in total. Fewer than 480 words is rejected; first drafts land short, so plan the 15 turns across the segments before writing them.'
+					'Write at least 19 turns of 30 to 60 words each, about 600 words in total. Fewer than 480 words is rejected; first drafts land short, so plan the 19 turns across the segments before writing them.'
 				)
 		).toBe(true)
 		const oneStory = buildWriterInput(base, notes(['news']))
 		expect(oneStory).toContain('The notes hold 1 story besides any wildcard.')
-		expect(oneStory).toContain('write about 750 words in total, in about 19 turns')
+		expect(oneStory).toContain('write about 750 words in total, in about 23 turns')
 	})
 })

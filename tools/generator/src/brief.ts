@@ -130,7 +130,8 @@ export function buildFixRequest(problems: string[]): string {
 	].join('\n')
 }
 
-export const WORDS_PER_TURN = 40
+export const WORDS_PER_TURN = 32
+export const TURN_WORDS = '30 to 60'
 
 export function expectedStoryCount(notes: SavedResearchNotes): number {
 	return notes.stories.filter((story) => story.kind !== 'wildcard').length
@@ -147,7 +148,7 @@ export function lengthReminder(listener: DueListener, notes: SavedResearchNotes)
 	return [
 		'## Before you write',
 		'',
-		`Write at least ${turns} turns of about ${WORDS_PER_TURN} words each, about ${range.target} words in total. Fewer than ${range.min} words is rejected; first drafts land short, so plan the ${turns} turns across the segments before writing them.`,
+		`Write at least ${turns} turns of ${TURN_WORDS} words each, about ${range.target} words in total. Fewer than ${range.min} words is rejected; first drafts land short, so plan the ${turns} turns across the segments before writing them.`,
 	].join('\n')
 }
 
@@ -156,7 +157,7 @@ export function lengthTarget(listener: DueListener, notes: SavedResearchNotes): 
 	return [
 		'## Length target',
 		'',
-		`The notes hold ${stories} ${stories === 1 ? 'story' : 'stories'} besides any wildcard. If you cover them all, write about ${range.target} words in total, in about ${turns} turns (about ${WORDS_PER_TURN} words a turn). The accepted range is ${range.min} to ${range.max}.`,
+		`The notes hold ${stories} ${stories === 1 ? 'story' : 'stories'} besides any wildcard. If you cover them all, write about ${range.target} words in total, in about ${turns} turns (turns run ${TURN_WORDS} words). The accepted range is ${range.min} to ${range.max}.`,
 		`First drafts tend to run short. Aim for ${range.target} words, not the minimum: a script under ${range.min} words is rejected. Count the words before you return.`,
 	].join('\n')
 }

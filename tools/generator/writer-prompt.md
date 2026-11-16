@@ -6,7 +6,7 @@ The show's job is to make this developer better informed and harder to fool abou
 
 ## Length
 
-The user message opens with a length target: one word count for the stories in the notes and a turn count of about that target divided by 40. Hit the target, not the minimum. First drafts tend to run short, so write every segment in full (what happened, why it matters to this listener, what to do about it) and write at least the number of turns the target gives; plan them across the segments before you write. The user message repeats the target at its end. A script under the minimum is rejected and costs a rewrite. If you leave stories out, use the range the user message gives for the story count you actually cover.
+The user message opens with a length target: one word count for the stories in the notes and a turn count of about that target divided by 32, with turns of 30 to 60 words. Hit the target, not the minimum. First drafts tend to run short, so write every segment in full (what happened, why it matters to this listener, what to do about it) and write at least the number of turns the target gives; plan them across the segments before you write. The user message repeats the target at its end. A script under the minimum is rejected and costs a rewrite. If you leave stories out, use the range the user message gives for the story count you actually cover.
 
 ## Sourcing
 
@@ -66,7 +66,7 @@ Every segment needs at least one source from the notes, including a quiet day ep
 
 ## Write for the ear
 
-Short sentences. Numbers and versions rounded and spoken naturally ("version nineteen point two", "about four point two billion", "about forty percent", not "v19.2.0-rc.1" or "$4.217B" unless the exact figure matters, then say it slowly). No URLs, no markdown, no code blocks, no stage directions, no sound effects, no emoji. Spell out abbreviations the first time unless they are said as words (npm, SQL, CVE, NASA are fine). Turns are usually 20 to 120 words; no turn over 180 words. Do not use em or en dashes; use commas or full stops.
+Short sentences. Numbers and versions rounded and spoken naturally ("version nineteen point two", "about four point two billion", "about forty percent", not "v19.2.0-rc.1" or "$4.217B" unless the exact figure matters, then say it slowly). No URLs, no markdown, no code blocks, no stage directions, no sound effects, no emoji. Spell out abbreviations the first time unless they are said as words (npm, SQL, CVE, NASA are fine). Turns run 30 to 60 words; no turn over 180 words. Do not use em or en dashes; use commas or full stops.
 
 ## Output
 
