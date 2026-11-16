@@ -9,6 +9,7 @@ export const LISTENERS_NEEDED = 5
 export const PAYERS_NEEDED = 3
 export const ERRORS_PER_SEGMENTS = 20
 export const ON_TIME_HOUR = 6
+export const SMOKE_MODEL = 'smoke'
 
 export interface GateWindow {
 	start: string
@@ -30,6 +31,7 @@ export function gateWindow(
 }
 
 export interface GateEpisode {
+	model: string
 	publishedOn: string
 	storyCount: number
 	createdAtMs: number
@@ -69,7 +71,9 @@ export function storyTarget(days: number): number {
 
 export function windowEpisodes(episodes: GateEpisode[], window: GateWindow): GateEpisode[] {
 	const dates = new Set(window.dates)
-	return episodes.filter((episode) => dates.has(episode.publishedOn))
+	return episodes.filter(
+		(episode) => episode.model !== SMOKE_MODEL && dates.has(episode.publishedOn)
+	)
 }
 
 export function expectedEpisodes(window: GateWindow, today: string): number {
@@ -109,10 +113,16 @@ export interface CheckCounts {
 	errors: number
 }
 
-export function countChecks(verdicts: Verdict[]): CheckCounts {
+export interface GateCheck {
+	verdict: Verdict
+	model: string
+}
+
+export function countChecks(checks: GateCheck[]): CheckCounts {
+	const counted = checks.filter((check) => check.model !== SMOKE_MODEL)
 	return {
-		checked: verdicts.length,
-		errors: verdicts.filter((verdict) => verdict === 'error').length,
+		checked: counted.length,
+		errors: counted.filter((check) => check.verdict === 'error').length,
 	}
 }
 
@@ -154,7 +164,7 @@ export interface GateReport {
 
 export function gateReport(
 	listeners: GateListener[],
-	verdicts: Verdict[],
+	checks: GateCheck[],
 	window: GateWindow,
 	today: string
 ): GateReport {
@@ -162,7 +172,7 @@ export function gateReport(
 	const listenCount = rows.filter((row) => row.meetsListen).length
 	const payCount = rows.filter((row) => row.wouldPay === 'yes').length
 	const storyCount = rows.filter((row) => row.meetsStories).length
-	const counts = countChecks(verdicts)
+	const counts = countChecks(checks)
 	const costs = listeners.flatMap((listener) =>
 		windowEpisodes(listener.episodes, window).map((episode) => episode.costUsd)
 	)

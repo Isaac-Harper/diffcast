@@ -1,6 +1,6 @@
 import { sql } from '../db'
 import type { Listened, Verdict, WouldPay } from '../episode-types'
-import type { GateListener } from '../gate'
+import type { GateCheck, GateListener } from '../gate'
 
 export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 	const listeners = (await sql`
@@ -11,6 +11,7 @@ export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 	`) as { id: number; name: string; timezone: string; would_pay: WouldPay | null }[]
 	const episodes = (await sql`
 		SELECT e.listener_id, e.published_on::text, e.story_count,
+			coalesce(e.metrics->>'model', '') AS model,
 			(extract(epoch FROM e.created_at) * 1000)::float8 AS created_ms,
 			(coalesce((e.metrics->>'llmCostUsd')::float8, 0) + coalesce((e.metrics->>'ttsCostUsd')::float8, 0))
 				AS cost_usd,
@@ -21,6 +22,7 @@ export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 	`) as {
 		listener_id: number
 		published_on: string
+		model: string
 		story_count: number
 		created_ms: number
 		cost_usd: number
@@ -35,6 +37,7 @@ export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 		episodes: episodes
 			.filter((episode) => episode.listener_id === listener.id)
 			.map((episode) => ({
+				model: episode.model,
 				publishedOn: episode.published_on,
 				storyCount: episode.story_count,
 				createdAtMs: episode.created_ms,
@@ -45,10 +48,10 @@ export async function gateListeners(dates: string[]): Promise<GateListener[]> {
 	}))
 }
 
-export async function gateVerdicts(dates: string[]): Promise<Verdict[]> {
-	const rows = (await sql`
-		SELECT c.verdict FROM segment_checks c JOIN episodes e ON e.id = c.episode_id
+export async function gateChecks(dates: string[]): Promise<GateCheck[]> {
+	return (await sql`
+		SELECT c.verdict, coalesce(e.metrics->>'model', '') AS model
+		FROM segment_checks c JOIN episodes e ON e.id = c.episode_id
 		WHERE e.published_on = ANY(${dates}::date[])
-	`) as { verdict: Verdict }[]
-	return rows.map((row) => row.verdict)
+	`) as { verdict: Verdict; model: string }[]
 }

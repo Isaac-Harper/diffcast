@@ -2,10 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { formatInstant } from '@/lib/format'
 import { listListenerSummaries } from '@/lib/store/listeners'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Listeners' }
 
 export default async function ListenersPage() {
+	await requireSession()
 	const listeners = await listListenerSummaries()
 	return (
 		<div className="space-y-4">

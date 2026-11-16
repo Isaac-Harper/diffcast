@@ -9,10 +9,12 @@ import { wholeId } from '@/lib/forms'
 import { getEpisode } from '@/lib/store/episodes'
 import { downloadsForEpisode, feedbackForEpisode, segmentChecks } from '@/lib/store/feedback'
 import { CheckForm } from '../check-form'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Episode' }
 
 export default async function EpisodePage({ params }: PageProps<'/admin/episodes/[id]'>) {
+	await requireSession()
 	const id = wholeId((await params).id)
 	const episode = id === null ? null : await getEpisode(id)
 	if (!episode) notFound()

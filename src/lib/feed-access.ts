@@ -9,33 +9,52 @@ const MISS_DELAY_MS = 500
 
 export const feedMisses = new Throttle(MAX_MISSES, WINDOW_MS)
 
-export async function lookupFeedToken(token: string): Promise<ActiveFeedToken | null> {
+export type MissStatus = 404 | 429
+
+async function lookupFeedToken(token: string): Promise<ActiveFeedToken | null> {
 	if (!isFeedToken(token)) return null
 	return findActiveFeedToken(hashFeedToken(token))
 }
 
-export async function recordMiss(ip: string, delayMs: number = MISS_DELAY_MS): Promise<boolean> {
-	if (feedMisses.blocked(ip)) return false
+export async function recordMiss(ip: string, delayMs: number = MISS_DELAY_MS): Promise<MissStatus> {
+	if (feedMisses.blocked(ip)) {
+		await pause(delayMs)
+		return 429
+	}
 	feedMisses.add(ip)
 	await pause(delayMs)
-	return true
+	return 404
 }
 
-export async function feedMiss(request: Request, delayMs?: number): Promise<Response> {
-	if (!(await recordMiss(requestIp(request), delayMs))) {
-		return new Response('Too many requests', {
-			status: 429,
-			headers: { 'content-type': 'text/plain' },
-		})
+export async function feedAccess(
+	ip: string,
+	token: string,
+	delayMs: number = MISS_DELAY_MS
+): Promise<ActiveFeedToken | MissStatus> {
+	if (feedMisses.blocked(ip)) {
+		await pause(delayMs)
+		return 429
 	}
-	return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } })
+	const found = await lookupFeedToken(token)
+	if (found) return found
+	return recordMiss(ip, delayMs)
+}
+
+function missResponse(status: MissStatus): Response {
+	return new Response(status === 429 ? 'Too many requests' : 'Not found', {
+		status,
+		headers: { 'content-type': 'text/plain' },
+	})
+}
+
+export async function feedMiss(request: Request): Promise<Response> {
+	return missResponse(await recordMiss(requestIp(request)))
 }
 
 export async function checkFeedToken(
 	request: Request,
 	token: string
 ): Promise<ActiveFeedToken | Response> {
-	const found = await lookupFeedToken(token)
-	if (found) return found
-	return feedMiss(request)
+	const access = await feedAccess(requestIp(request), token)
+	return typeof access === 'number' ? missResponse(access) : access
 }

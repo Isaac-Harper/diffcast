@@ -1,0 +1,126 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SESSION_COOKIE, signingKey, signSession } from '@/lib/session'
+import { saveCheck } from './episodes/actions'
+import {
+	issueToken,
+	previewStack,
+	revokeToken,
+	saveListener,
+	toggleListener,
+} from './listeners/actions'
+
+const state = vi.hoisted(() => ({
+	session: undefined as string | undefined,
+	writes: [] as string[],
+}))
+
+vi.mock('@/lib/db', () => ({
+	sql: () => {
+		throw new Error('The database must not be used in this test')
+	},
+}))
+vi.mock('next/cache', () => ({ refresh: () => undefined }))
+vi.mock('next/headers', () => ({
+	cookies: async () => ({
+		get: (name: string) =>
+			name === SESSION_COOKIE && state.session ? { name, value: state.session } : undefined,
+	}),
+	headers: async () => new Headers({ host: 'diffcast.test', 'x-forwarded-proto': 'https' }),
+}))
+vi.mock('@/lib/store/listeners', () => ({
+	listenerExists: async () => true,
+	addListener: async () => {
+		state.writes.push('addListener')
+		return 1
+	},
+	updateListener: async () => {
+		state.writes.push('updateListener')
+	},
+	setListenerActive: async () => {
+		state.writes.push('setListenerActive')
+	},
+}))
+vi.mock('@/lib/store/feed-tokens', () => ({
+	addFeedToken: async () => {
+		state.writes.push('addFeedToken')
+	},
+	revokeFeedToken: async () => {
+		state.writes.push('revokeFeedToken')
+	},
+}))
+vi.mock('@/lib/store/episodes', () => ({
+	getEpisode: async () => ({ segments: [{}] }),
+}))
+vi.mock('@/lib/store/feedback', () => ({
+	saveSegmentCheck: async () => {
+		state.writes.push('saveSegmentCheck')
+	},
+}))
+
+const SECRET = 's'.repeat(40)
+const PASSWORD = 'owner-password'
+
+function form(values: Record<string, string>): FormData {
+	const data = new FormData()
+	for (const [key, value] of Object.entries(values)) data.set(key, value)
+	return data
+}
+
+const calls: [string, () => Promise<unknown>][] = [
+	[
+		'saveListener',
+		() => saveListener({ error: null }, form({ name: 'Ana', timezone: 'UTC', minutes: '10' })),
+	],
+	['previewStack', () => previewStack('next', 'lines')],
+	['toggleListener', () => toggleListener(form({ id: '1', active: 'false' }))],
+	[
+		'issueToken',
+		() => issueToken({ status: 'idle' }, form({ listenerId: '1', label: 'Overcast' })),
+	],
+	['revokeToken', () => revokeToken(form({ tokenId: '1' }))],
+	[
+		'saveCheck',
+		() =>
+			saveCheck(
+				{ status: 'idle', message: '' },
+				form({ episodeId: '1', segmentIndex: '0', verdict: 'correct' })
+			),
+	],
+]
+
+beforeEach(() => {
+	vi.stubEnv('DIFFCAST_ADMIN_PASSWORD', PASSWORD)
+	vi.stubEnv('DIFFCAST_SESSION_SECRET', SECRET)
+	state.session = undefined
+	state.writes.length = 0
+})
+
+describe('admin actions', () => {
+	it('redirect to /login and write nothing without a valid session', async () => {
+		for (const session of [undefined, 'forged.token', signSession(signingKey(SECRET, 'old'))]) {
+			state.session = session
+			for (const [name, call] of calls) {
+				await expect(call(), `${name} ${session}`).rejects.toMatchObject({
+					digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/),
+				})
+			}
+		}
+		expect(state.writes).toEqual([])
+	})
+
+	it('run with a valid session', async () => {
+		state.session = signSession(signingKey(SECRET, PASSWORD))
+		expect(await previewStack('npm:next', 'lines')).toEqual({
+			ok: true,
+			dependencies: [{ name: 'next', ecosystem: 'npm' }],
+		})
+		const issued = await issueToken(
+			{ status: 'idle' },
+			form({ listenerId: '1', label: 'Overcast' })
+		)
+		expect(issued).toMatchObject({ status: 'issued' })
+		await toggleListener(form({ id: '1', active: 'false' }))
+		await revokeToken(form({ tokenId: '1' }))
+		expect(state.writes).toEqual(['addFeedToken', 'setListenerActive', 'revokeFeedToken'])
+	})
+})

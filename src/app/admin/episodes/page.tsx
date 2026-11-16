@@ -4,10 +4,12 @@ import { formatMinutes, formatUsd } from '@/lib/format'
 import { wholeId } from '@/lib/forms'
 import { listEpisodes } from '@/lib/store/episodes'
 import { listenerNames } from '@/lib/store/listeners'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Episodes' }
 
 export default async function EpisodesPage({ searchParams }: PageProps<'/admin/episodes'>) {
+	await requireSession()
 	const raw = (await searchParams)['listener']
 	const listenerId = wholeId(typeof raw === 'string' ? raw : null)
 	const [episodes, listeners] = await Promise.all([listEpisodes(listenerId), listenerNames()])

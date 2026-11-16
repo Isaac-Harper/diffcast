@@ -24,8 +24,8 @@ Phase 0 (prototype) in progress. Spec: `docs/agents/phase0-spec.md`. The web app
 - `src/app/page.tsx`: placeholder landing page.
 - `src/proxy.ts`: first gate. `/api/jobs/*` needs the bearer token (`src/lib/job-auth.ts`), `/admin` the session cookie; everything else passes to its handler. Route handlers and server actions check again.
 - `src/app/api/jobs/{due,upload,episodes,failures}`: job API for the generator, bodies from `shared/contract.ts`. Due rule in `src/lib/due.ts`, assembly in `src/lib/jobs.ts`.
-- `src/app/api/feed/[token]`, `src/app/api/audio/[token]/[file]`, `src/app/l/[token]`: listener surfaces keyed by a feed token (`src/lib/feed-tokens.ts`, lookup and miss throttle in `src/lib/feed-access.ts`). Every episode lookup is scoped to the token's listener.
-- `src/app/admin/`: gate dashboard (home), listeners (form, stack paste, feed tokens), episodes (detail with spot checks), runs. `src/app/login/`: owner password login.
+- `src/app/api/feed/[token]`, `src/app/api/audio/[token]/[file]`, `src/app/l/[token]`: listener surfaces keyed by a feed token (`src/lib/feed-tokens.ts`, lookup and miss throttle in `src/lib/feed-access.ts`; every surface, the page and its actions included, goes through `feedAccess`, which checks the throttle before the lookup). Every episode lookup is scoped to the token's listener. A token works only while it is unrevoked and its listener is active.
+- `src/app/admin/`: every page and action calls `requireSession()` itself, on top of the layout and proxy. Gate dashboard (home; episodes with `metrics.model` `smoke` and their spot checks are left out of every metric), listeners (form, stack paste, feed tokens), episodes (detail with spot checks), runs. `src/app/login/`: owner password login.
 - `src/lib/`: pure rules (`time.ts`, `due.ts`, `feed.ts`, `stack-parser.ts`, `gate.ts`, `forms.ts`, `blob-rules.ts`, `session.ts`), Next and service glue (`auth.ts`, `blob.ts`, `http.ts`), queries in `store/`.
 - `db/migrations/001_phase0.sql`, `db/migrate.mjs`: schema and runner.
 - `public/cover.png`: 1400 square feed artwork.

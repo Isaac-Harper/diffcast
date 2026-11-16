@@ -19,7 +19,7 @@ export async function findActiveFeedToken(tokenHash: string): Promise<ActiveFeed
 	const rows = (await sql`
 		SELECT t.id, t.listener_id AS "listenerId"
 		FROM feed_tokens t JOIN listeners l ON l.id = t.listener_id
-		WHERE t.token_hash = ${tokenHash} AND t.revoked_at IS NULL
+		WHERE t.token_hash = ${tokenHash} AND t.revoked_at IS NULL AND l.active
 	`) as ActiveFeedToken[]
 	return rows[0] ?? null
 }

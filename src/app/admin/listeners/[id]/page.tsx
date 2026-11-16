@@ -11,6 +11,7 @@ import { COMMON_TIME_ZONES } from '@/lib/time'
 import { revokeToken, toggleListener } from '../actions'
 import { IssueToken } from '../issue-token'
 import { ListenerForm } from '../listener-form'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Listener' }
 
@@ -18,6 +19,7 @@ export default async function ListenerPage({
 	params,
 	searchParams,
 }: PageProps<'/admin/listeners/[id]'>) {
+	await requireSession()
 	const id = wholeId((await params).id)
 	const listener = id === null ? null : await getListener(id)
 	if (!listener) notFound()

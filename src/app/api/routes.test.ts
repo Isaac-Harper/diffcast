@@ -41,7 +41,11 @@ vi.mock('@/lib/db', () => ({
 	},
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
-	findActiveFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
+	findActiveFeedToken: async (hash: string) => {
+		const token = state.tokens.get(hash)
+		const owner = state.listeners.find((listener) => listener.id === token?.listenerId)
+		return token && owner?.active ? token : null
+	},
 	recordFeedFetch: async (id: number) => {
 		state.fetches.push(id)
 	},
@@ -506,5 +510,20 @@ describe('feed and audio', () => {
 			audioParams(FEED_ONE, '101.wav')
 		)
 		expect(badFile.status).toBe(404)
+	})
+
+	it("stops a deactivated listener's feed and audio with 404", async () => {
+		const ana = state.listeners.find((listener) => listener.id === 1)
+		if (!ana) throw new Error('fixture')
+		ana.active = false
+		const [feedResponse, audioResponse] = await Promise.all([
+			feed(request(`/api/feed/${FEED_ONE}`), tokenParams(FEED_ONE)),
+			audio(request(`/api/audio/${FEED_ONE}/101.mp3`), audioParams(FEED_ONE, '101.mp3')),
+		])
+		expect([feedResponse.status, audioResponse.status]).toEqual([404, 404])
+		expect(state.fetches).toEqual([])
+		expect(state.downloads).toEqual([])
+		const other = await feed(request(`/api/feed/${FEED_TWO}`), tokenParams(FEED_TWO))
+		expect(other.status).toBe(200)
 	})
 })

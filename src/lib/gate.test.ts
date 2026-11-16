@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
 	costSummary,
+	countChecks,
 	expectedEpisodes,
 	gateReport,
 	gateWindow,
@@ -9,15 +10,17 @@ import {
 	listenTarget,
 	meetsErrorLine,
 	onTimeRate,
+	SMOKE_MODEL,
 	storyTarget,
 } from './gate'
-import type { GateEpisode, GateListener } from './gate'
+import type { GateCheck, GateEpisode, GateListener } from './gate'
 
 const WINDOW = gateWindow({ DIFFCAST_GATE_START: '2026-11-16' })
 if (!WINDOW) throw new Error('window')
 
 function episode(date: string, overrides: Partial<GateEpisode> = {}): GateEpisode {
 	return {
+		model: 'claude-sonnet-5-5',
 		publishedOn: date,
 		storyCount: 4,
 		createdAtMs: Date.parse(`${date}T12:00:00Z`),
@@ -128,13 +131,52 @@ describe('gate lines', () => {
 			),
 			listener(6, { episodes: full.slice(0, 5) }),
 		]
-		const verdicts = [...Array(19).fill('correct'), 'error'] as ('correct' | 'error')[]
-		const report = gateReport(listeners, verdicts, WINDOW, '2026-12-01')
+		const checks: GateCheck[] = [
+			...Array.from({ length: 19 }, () => ({ verdict: 'correct' as const, model: 'm' })),
+			{ verdict: 'error', model: 'm' },
+		]
+		const report = gateReport(listeners, checks, WINDOW, '2026-12-01')
 		expect(report.listen).toEqual({ count: 5, needed: 5, episodes: 6, met: true })
 		expect(report.pay).toEqual({ count: 3, needed: 3, met: true })
 		expect(report.stories).toEqual({ count: 5, of: 6, days: 8, met: false })
 		expect(report.errors).toEqual({ checked: 20, errors: 1, met: true })
 		expect(report.cost.max).toBe(0.3)
 		expect(report.onTime).toBe(1)
+	})
+
+	it('ignores smoke episodes and their checks in every metric', () => {
+		const smoke = (date: string) =>
+			episode(date, {
+				model: SMOKE_MODEL,
+				costUsd: 9,
+				createdAtMs: Date.parse(`${date}T20:00:00Z`),
+			})
+		const listeners = [
+			listener(1, {
+				episodes: [
+					...WINDOW.dates.slice(0, 2).map((date) => episode(date)),
+					...WINDOW.dates.slice(2).map(smoke),
+				],
+			}),
+			listener(2, { episodes: WINDOW.dates.map(smoke) }),
+		]
+		const checks: GateCheck[] = [
+			{ verdict: 'correct', model: 'm' },
+			{ verdict: 'error', model: SMOKE_MODEL },
+			{ verdict: 'error', model: SMOKE_MODEL },
+		]
+		const report = gateReport(listeners, checks, WINDOW, '2026-12-01')
+		expect(
+			report.listeners.map((row) => [row.delivered, row.downloaded, row.listened, row.storyDays])
+		).toEqual([
+			[2, 2, 2, 2],
+			[0, 0, 0, 0],
+		])
+		expect(report.listen.count).toBe(0)
+		expect(report.stories.count).toBe(0)
+		expect(report.errors).toEqual({ checked: 1, errors: 0, met: true })
+		expect(report.cost).toEqual({ average: 0.3, max: 0.3 })
+		expect(report.onTime).toBe(1)
+		expect(countChecks(checks)).toEqual({ checked: 1, errors: 0 })
 	})
 })

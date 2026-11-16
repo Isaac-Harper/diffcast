@@ -4,18 +4,14 @@ import { Suspense } from 'react'
 import { hasSession } from '@/lib/auth'
 import { authConfig } from '@/lib/session'
 import { login } from './actions'
+import { loginMessage } from './messages'
 
 export const metadata: Metadata = { title: 'Log in', robots: { index: false, follow: false } }
-
-const ERRORS: Record<string, string> = {
-	invalid: 'Wrong password.',
-	throttled: 'Too many attempts. Wait ten minutes and try again.',
-}
 
 async function LoginForm({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
 	if (await hasSession()) redirect('/admin')
 	const { error } = await searchParams
-	const message = error ? ERRORS[error] : undefined
+	const message = loginMessage(error)
 
 	if (!authConfig()) return <p className="card muted text-sm">Login is not configured.</p>
 

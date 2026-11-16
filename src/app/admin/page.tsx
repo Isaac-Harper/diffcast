@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { formatPercent, formatUsd } from '@/lib/format'
 import { gateReport, gateWindow } from '@/lib/gate'
-import { gateListeners, gateVerdicts } from '@/lib/store/gate'
+import { gateListeners, gateChecks } from '@/lib/store/gate'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Gate' }
 
@@ -18,6 +19,7 @@ function Line({ label, value, met }: { label: string; value: string; met: boolea
 }
 
 export default async function GatePage() {
+	await requireSession()
 	const window = gateWindow()
 	if (!window) {
 		return (
@@ -27,12 +29,12 @@ export default async function GatePage() {
 			</p>
 		)
 	}
-	const [listeners, verdicts] = await Promise.all([
+	const [listeners, checks] = await Promise.all([
 		gateListeners(window.dates),
-		gateVerdicts(window.dates),
+		gateChecks(window.dates),
 	])
 	const today = new Date().toISOString().slice(0, 10)
-	const report = gateReport(listeners, verdicts, window, today)
+	const report = gateReport(listeners, checks, window, today)
 
 	return (
 		<div className="space-y-6">

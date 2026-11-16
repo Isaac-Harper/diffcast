@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { CopyButton } from '@/app/components/copy-button'
 import { SegmentList } from '@/app/components/segment-list'
-import { lookupFeedToken, recordMiss } from '@/lib/feed-access'
+import { feedAccess } from '@/lib/feed-access'
 import { episodeAudioUrl, feedUrl } from '@/lib/feed-tokens'
 import { FEED_EPISODES } from '@/lib/feed'
 import { formatDate, formatMinutes } from '@/lib/format'
@@ -24,11 +24,8 @@ export const metadata: Metadata = {
 async function ListenerView({ params }: { params: Promise<{ token: string }> }) {
 	const { token } = await params
 	const headerList = await headers()
-	const access = await lookupFeedToken(token)
-	if (!access) {
-		await recordMiss(forwardedIp(headerList.get('x-forwarded-for')))
-		notFound()
-	}
+	const access = await feedAccess(forwardedIp(headerList.get('x-forwarded-for')), token)
+	if (typeof access === 'number') notFound()
 
 	const [listener, episodes, feedback, survey] = await Promise.all([
 		getListener(access.listenerId),

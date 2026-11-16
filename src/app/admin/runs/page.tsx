@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { formatInstant } from '@/lib/format'
 import { listJobRuns } from '@/lib/store/runs'
+import { requireSession } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Runs' }
 
 export default async function RunsPage() {
+	await requireSession()
 	const runs = await listJobRuns(50)
 	return (
 		<div className="space-y-4">

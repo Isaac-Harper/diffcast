@@ -33,12 +33,14 @@ export async function checkJobRequest(
 	options: { now?: number; delayMs?: number } = {}
 ): Promise<Response | null> {
 	const now = options.now ?? Date.now()
-	if (verifyJobToken(request.headers.get('authorization'), jobToken())) return null
+	const delayMs = options.delayMs ?? FAILURE_DELAY_MS
 	const ip = requestIp(request)
 	if (jobFailures.blocked(ip, now)) {
+		await pause(delayMs)
 		return Response.json({ error: 'Too many requests' }, { status: 429 })
 	}
+	if (verifyJobToken(request.headers.get('authorization'), jobToken())) return null
 	jobFailures.add(ip, now)
-	await pause(options.delayMs ?? FAILURE_DELAY_MS)
+	await pause(delayMs)
 	return Response.json({ error: 'Unauthorized' }, { status: 401 })
 }
