@@ -1,12 +1,12 @@
 import { homedir } from 'node:os'
 
-export const DEFAULT_MODEL = 'claude-sonnet-5-5'
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-5-5'
 export const DEFAULT_TTS_MODEL = 'eleven_v4'
 
 export type JobApiConfig = { jobUrl: string; jobToken: string }
 
 export type LiveConfig = JobApiConfig & {
-	anthropicApiKey: string
+	gatewayApiKey: string
 	model: string
 	elevenLabsApiKey: string
 	hostVoice: string
@@ -45,7 +45,7 @@ export function loadLiveConfig(environment: Environment): LiveConfig {
 	requireEnvironment(environment, [
 		'DIFFCAST_URL',
 		'DIFFCAST_JOB_TOKEN',
-		'ANTHROPIC_API_KEY',
+		'AI_GATEWAY_API_KEY',
 		'ELEVENLABS_API_KEY',
 		'DIFFCAST_HOST_VOICE',
 		'DIFFCAST_COHOST_VOICE',
@@ -59,7 +59,7 @@ export function loadLiveConfig(environment: Environment): LiveConfig {
 	}
 	return {
 		...loadJobApiConfig(environment),
-		anthropicApiKey: requiredValue(environment, 'ANTHROPIC_API_KEY'),
+		gatewayApiKey: requiredValue(environment, 'AI_GATEWAY_API_KEY'),
 		model: environment['DIFFCAST_MODEL'] || DEFAULT_MODEL,
 		elevenLabsApiKey: requiredValue(environment, 'ELEVENLABS_API_KEY'),
 		hostVoice: requiredValue(environment, 'DIFFCAST_HOST_VOICE'),

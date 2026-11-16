@@ -19,8 +19,8 @@ Needs on PATH: Node 22.16 or later, ffmpeg and ffprobe.
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `DIFFCAST_URL`                  | Web app origin, for example `https://diffcast-fm.vercel.app`. Required.                                                   |
 | `DIFFCAST_JOB_TOKEN`            | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                        |
-| `ANTHROPIC_API_KEY`             | Anthropic key. The only secret the research step sees. Required.                                                          |
-| `DIFFCAST_MODEL`                | Model id. Default `claude-sonnet-5-5`. Must have a row in `src/pricing.ts`.                                               |
+| `AI_GATEWAY_API_KEY`            | Vercel AI Gateway key (personal team). Research calls the gateway's Anthropic Messages endpoint. Required.                |
+| `DIFFCAST_MODEL`                | Model id. Default `anthropic/claude-sonnet-5-5`. Must have a row in `src/pricing.ts`.                                     |
 | `ELEVENLABS_API_KEY`            | ElevenLabs key. Required.                                                                                                 |
 | `DIFFCAST_HOST_VOICE`           | ElevenLabs voice id for Mara (host). Required.                                                                            |
 | `DIFFCAST_COHOST_VOICE`         | ElevenLabs voice id for Theo (cohost). Required. Pick two premade voices with contrasting timbre. Never a Monogram voice. |

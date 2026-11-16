@@ -45,7 +45,7 @@ export type ResearchUsage = {
 }
 
 export function priceFor(model: string): ModelPrice {
-	const price = MODEL_PRICES_USD[model]
+	const price = MODEL_PRICES_USD[model.replace(/^anthropic\//, '')]
 	if (!price) throw new Error(`no price for model ${model}; add it to pricing.ts`)
 	return price
 }

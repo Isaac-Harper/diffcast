@@ -15,6 +15,7 @@ const MAX_WEB_FETCHES = 25
 const MAX_CONTINUATIONS = 8
 const REQUEST_TIMEOUT_MS = 20 * 60 * 1000
 const ATTEMPTS = 2
+const GATEWAY_URL = 'https://ai-gateway.vercel.sh'
 
 type Conversation = Anthropic.Beta.BetaMessageParam[]
 
@@ -53,7 +54,11 @@ function checkReply(reply: string, minutes: number): ScriptCheck {
 }
 
 export function createClaudeWriter(settings: ClaudeWriterSettings): ScriptWriter {
-	const client = new Anthropic({ apiKey: settings.apiKey, timeout: REQUEST_TIMEOUT_MS })
+	const client = new Anthropic({
+		apiKey: settings.apiKey,
+		baseURL: GATEWAY_URL,
+		timeout: REQUEST_TIMEOUT_MS,
+	})
 
 	async function converse(conversation: Conversation, usages: ResearchUsage[]): Promise<string> {
 		for (let continuation = 0; continuation <= MAX_CONTINUATIONS; continuation++) {

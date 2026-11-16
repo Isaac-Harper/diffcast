@@ -54,7 +54,7 @@ export async function createServices(
 	return {
 		jobs,
 		writer: createClaudeWriter({
-			apiKey: config.anthropicApiKey,
+			apiKey: config.gatewayApiKey,
 			model: config.model,
 			systemPrompt: await readFile(join(PACKAGE_DIRECTORY, 'prompt.md'), 'utf8'),
 		}),
