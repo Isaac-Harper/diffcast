@@ -21,7 +21,7 @@ Needs on PATH: Node 22.16 or later, ffmpeg and ffprobe.
 | `DIFFCAST_JOB_TOKEN`      | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                                          |
 | `AI_GATEWAY_API_KEY`      | Vercel AI Gateway key (personal team). Pays for research, writing, search and voice. Required.                                              |
 | `DIFFCAST_RESEARCH_MODEL` | Gateway model id for the research loop. Default `google/gemini-3.8-flash`.                                                                  |
-| `DIFFCAST_WRITER_MODEL`   | Gateway model id for the writing call. Default `google/gemini-3.8-flash`.                                                                   |
+| `DIFFCAST_WRITER_MODEL`   | Gateway model id for the writing call. Default `anthropic/claude-sonnet-5-5` (Gemini Flash broke the ear and challenge rules).              |
 | `DIFFCAST_TTS_MODEL`      | Gateway speech model id. Default `fish-audio/s2.1-pro`.                                                                                     |
 | `DIFFCAST_HOST_VOICE`     | Voice id for Mara (host) on the speech model. Default `e3cd384158934cc9a01029cd7d278634` (Fish Audio "Laura": warm, conversational).        |
 | `DIFFCAST_COHOST_VOICE`   | Voice id for Theo (cohost). Default `536d3a5e000945adb7038665781a4aca` (Fish Audio "Ethan": clear, matter of fact). Never a Monogram voice. |
