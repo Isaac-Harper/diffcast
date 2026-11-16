@@ -1,6 +1,6 @@
 # Diffcast
 
-Paid daily two host podcast for developers about their own stack, with a remote MCP server for agent context sync. Spun out of the podcast feature in `~/Development/cvzx`. Name Diffcast, chosen 2026-11-16; intended domain diffcast.fm (not yet bought; diffcast.dev is taken).
+Paid daily two host tech and AI news podcast for developers, personalized by each listener's interests (topics with optional takes) with their stack as one extra signal, plus a planned remote MCP server for agent context sync. Tagline in use (proposed 2026-11-16): "What changed in your corner of tech since yesterday." Spun out of the podcast feature in `~/Development/cvzx`. Name Diffcast, chosen 2026-11-16; intended domain diffcast.fm (not yet bought; diffcast.dev is taken).
 
 ## Status
 
@@ -16,7 +16,7 @@ Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web
 ## Stack
 
 - Next.js 16 App Router, React 19, TypeScript strict (extra flags match cvzx), Tailwind 4, pnpm, Node 22.
-- Prettier via `@monogram/prettier-config`, ESLint flat config from `eslint-config-next`, vitest (`vitest.config.mts`, `src/**/*.test.ts`).
+- Prettier via `@monogram/prettier-config`, ESLint flat config from `eslint-config-next`, vitest (`vitest.config.mts`, `src/**/*.test.{ts,tsx}`; component tests opt into jsdom with a `// @vitest-environment jsdom` docblock, setup in `src/test/setup.ts`).
 - `cacheComponents` is on: anything reading cookies, headers, params or the database renders inside `<Suspense>` (the admin layout wraps every admin page in one).
 - Neon Postgres via `@neondatabase/serverless` (`src/lib/db.ts`, tagged template `sql`). Dates are selected as `::text`. Migrations are plain SQL in `db/migrations/`, applied by `pnpm db:migrate` (tracked in `schema_migrations`).
 - Private Vercel Blob store for audio. No response or page ever carries a raw Blob URL; listeners get 10 minute signed URLs through the audio route.
@@ -28,20 +28,32 @@ Phase 0 (prototype) deployed 2026-11-16. Spec: `docs/agents/phase0-spec.md`. Web
 
 ## File map
 
-- `src/app/page.tsx`: placeholder landing page.
+- `src/app/page.tsx`: public landing page, composed from `src/app/landing/` (hero with the sample brief panel, how it works, episode anatomy with sample show notes, privacy summary, planned pricing, FAQ accordion, waitlist form). Header and footer in `src/app/components/site-chrome.tsx`, shared with `src/app/privacy/page.tsx`.
+- `src/app/waitlist/actions.ts`: `joinWaitlist` (honeypot field `website`, per IP throttle, zod validation in `src/lib/waitlist.ts`, duplicate emails answer like a new join). Table `waitlist` in `db/migrations/002_waitlist.sql`, queries in `src/lib/store/waitlist.ts`. `/admin/waitlist` lists entries; Invite opens `/admin/listeners/new?waitlist=<id>` prefilled (name from the email, interests text into focus, stack text), and `saveListener` stamps `invited_at` from the hidden `waitlistId` field.
+- `src/app/components/`: shared UI built on UI SDK parts: `SubmitButton`, `FormStatus`, `CopyButton`, `ChoiceGroup` (radio group as chips), `SelectField`, `ConfirmAction` (alert dialog that runs a server action, then a toast), `Toaster` (mounted in the admin layout), `Wordmark`, `SegmentList`.
+- Metadata: `src/lib/site.ts` (name, tagline, description, `SITE_URL` from `VERCEL_PROJECT_PRODUCTION_URL`), `src/app/opengraph-image.tsx` and `apple-icon.tsx` (drawn in `brand-image.tsx`), `icon.svg`, `robots.ts` (disallows `/l/`, `/admin`, `/login`, `/api/`), `sitemap.ts` (`/` and `/privacy` only).
+- Interests placeholders: a marked comment (`INTERESTS SECTION`) in `src/app/admin/listeners/listener-form.tsx` and `src/app/l/[token]/page.tsx` shows where the interests editor and listing go.
 - `src/proxy.ts`: first gate. `/api/jobs/*` needs the bearer token (`src/lib/job-auth.ts`), `/admin` the session cookie; everything else passes to its handler. Route handlers and server actions check again.
 - `src/app/api/jobs/{due,upload,episodes,failures}`: job API for the generator, bodies from `shared/contract.ts`. Due rule in `src/lib/due.ts`, assembly in `src/lib/jobs.ts`.
 - `src/app/api/feed/[token]`, `src/app/api/audio/[token]/[file]`, `src/app/l/[token]`: listener surfaces keyed by a feed token (`src/lib/feed-tokens.ts`, lookup and miss throttle in `src/lib/feed-access.ts`; every surface, the page and its actions included, goes through `feedAccess`, which checks the throttle before the lookup). Every episode lookup is scoped to the token's listener. A token works only while it is unrevoked and its listener is active.
 - `src/app/admin/`: every page and action calls `requireSession()` itself, on top of the layout and proxy. Gate dashboard (home; episodes with `metrics.model` `smoke` and their spot checks are left out of every metric), listeners (form, stack paste, feed tokens), episodes (detail with spot checks), runs. `src/app/login/`: owner password login.
 - `src/lib/`: pure rules (`time.ts`, `due.ts`, `feed.ts`, `stack-parser.ts`, `gate.ts`, `forms.ts`, `blob-rules.ts`, `session.ts`), Next and service glue (`auth.ts`, `blob.ts`, `http.ts`), queries in `store/`.
 - `db/migrations/001_phase0.sql`, `db/migrate.mjs`: schema and runner.
-- `public/cover.png`: 1400 square feed artwork.
+- `public/cover.png`: 1400 square feed artwork (dark tile, the two diff bars, wordmark, tagline); redraw it if the tagline changes.
 - `docs/proposal.md`: original proposal (2026-11-15). Its name section recommends Lockfile; Diffcast was picked instead.
 - `docs/agents/`: phase plan and advisory review.
 
+## Design system
+
+- Tokens live on `:root` in `src/app/globals.css` as `light-dark()` pairs, so dark mode follows `prefers-color-scheme` with no `dark:` variants. Tailwind color names: `bg`, `surface`, `sunken`, `fg`, `muted`, `line`, `edge` (control borders, 3:1), `add` and `add-soft` (green: success, additions), `del` and `del-soft` (red: errors, removals), `warn-soft`, `warn-line`. Never use Tailwind palette colors.
+- Type: Geist for text, Geist Mono for labels, metadata and code. Sizes `text-display` and `text-title` are fluid. Radius: `rounded-control` (6px) for controls, `rounded-card` (10px) for cards.
+- Every interactive control is a UI SDK part (`@ui-sdk/react/*`, skill in `.claude/skills/ui-sdk`; read `node_modules/@ui-sdk/react/docs/llms.txt` first). `@layer ui-sdk;` sits above the Tailwind import and `@ui-sdk/core/web.css` is imported into `layer(components)` and themed through the `--ui-*` tokens. Button variants are data attributes: `data-variant="solid" | "destructive" | "quiet"`, `data-size="lg"`.
+- Classes: `.card`, `.table-frame` around `table.data-table`, `.code-chip`, `.honeypot`. The diff motif (a red bar over a longer green bar, `+` and `-` gutters) is the brand mark; keep it to the wordmark, the hero panel and semantic states.
+- Trap: the CSS pipeline drops `flex-direction: row` as a default value, so overriding a column flex from `web.css` needs `flex-flow: row wrap`.
+
 ## Checks
 
-`pnpm lint`, `pnpm typecheck` (runs `next typegen` first for the route types), `pnpm test`, `pnpm format`, `pnpm build`. Route tests mock `@/lib/db`, the `store/` modules and `@/lib/blob` (`src/app/api/routes.test.ts`).
+`pnpm lint`, `pnpm typecheck` (runs `next typegen` first for the route types), `pnpm test`, `pnpm format`, `pnpm build`. Route tests mock `@/lib/db`, the `store/` modules and `@/lib/blob` (`src/app/api/routes.test.ts`). Forms carry the UI SDK agent test (`src/app/landing/waitlist-form.test.tsx`, `src/app/l/[token]/forms.test.tsx`): every control named and settable through `createAgent`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
