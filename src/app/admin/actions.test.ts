@@ -40,6 +40,13 @@ vi.mock('@/lib/store/listeners', () => ({
 		state.writes.push('setListenerActive')
 	},
 }))
+vi.mock('@/lib/store/interests', () => ({
+	saveInterests: async (listenerId: number, rows: { topic: string; active: boolean }[]) => {
+		state.writes.push(
+			`saveInterests:${listenerId}:${rows.map((row) => `${row.topic}=${row.active}`).join(',')}`
+		)
+	},
+}))
 vi.mock('@/lib/store/waitlist', () => ({
 	markWaitlistInvited: async (id: number) => {
 		state.writes.push(`markWaitlistInvited:${id}`)
@@ -150,5 +157,61 @@ describe('admin actions', () => {
 			)
 		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/) })
 		expect(state.writes).toEqual([])
+	})
+
+	function interestsForm(values: Record<string, string>): FormData {
+		const data = form({ name: 'Ana', timezone: 'UTC', minutes: '10', ...values })
+		data.set('interestsEditor', '1')
+		for (const [topic, active] of [
+			['Security', 'true'],
+			['Databases', 'false'],
+		] as const) {
+			data.append('topic[]', topic)
+			data.append('take[]', '')
+			data.append('note[]', '')
+			data.append('active[]', active)
+		}
+		return data
+	}
+
+	it('saves posted interests with the listener, in order, only with a session', async () => {
+		await expect(saveListener({ error: null }, interestsForm({ id: '1' }))).rejects.toMatchObject({
+			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/),
+		})
+		expect(state.writes).toEqual([])
+
+		state.session = signSession(signingKey(SECRET, PASSWORD))
+		await expect(saveListener({ error: null }, interestsForm({ id: '1' }))).rejects.toMatchObject({
+			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/admin\/listeners\/1\?saved=1/),
+		})
+		await expect(saveListener({ error: null }, interestsForm({}))).rejects.toMatchObject({
+			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/admin\/listeners\/1/),
+		})
+		expect(state.writes).toEqual([
+			'updateListener',
+			'saveInterests:1:Security=true,Databases=false',
+			'addListener',
+			'saveInterests:1:Security=true,Databases=false',
+		])
+	})
+
+	it('leaves interests alone without the editor and refuses an empty editor', async () => {
+		state.session = signSession(signingKey(SECRET, PASSWORD))
+		await expect(
+			saveListener({ error: null }, form({ id: '1', name: 'Ana', timezone: 'UTC', minutes: '10' }))
+		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT/) })
+		expect(state.writes).toEqual(['updateListener'])
+
+		const empty = form({
+			id: '1',
+			name: 'Ana',
+			timezone: 'UTC',
+			minutes: '10',
+			interestsEditor: '1',
+		})
+		expect(await saveListener({ error: null }, empty)).toEqual({
+			error: 'Keep at least one interest.',
+		})
+		expect(state.writes).toEqual(['updateListener'])
 	})
 })

@@ -8,6 +8,7 @@ import { formatInstant } from '@/lib/format'
 import { wholeId } from '@/lib/forms'
 import { stackToLines } from '@/lib/stack-parser'
 import { listFeedTokens } from '@/lib/store/feed-tokens'
+import { listInterests } from '@/lib/store/interests'
 import { getListener } from '@/lib/store/listeners'
 import { COMMON_TIME_ZONES } from '@/lib/time'
 import { revokeToken, toggleListener } from '../actions'
@@ -25,7 +26,11 @@ export default async function ListenerPage({
 	const id = wholeId((await params).id)
 	const listener = id === null ? null : await getListener(id)
 	if (!listener) notFound()
-	const [tokens, query] = await Promise.all([listFeedTokens(listener.id), searchParams])
+	const [tokens, interests, query] = await Promise.all([
+		listFeedTokens(listener.id),
+		listInterests(listener.id),
+		searchParams,
+	])
 
 	return (
 		<div className="max-w-3xl space-y-8">
@@ -62,8 +67,17 @@ export default async function ListenerPage({
 			{query['saved'] && <FormStatus status="saved" message="Saved." />}
 
 			<ListenerForm
-				key={JSON.stringify(listener)}
+				key={JSON.stringify([
+					listener,
+					interests.map((interest) => [
+						interest.topic,
+						interest.take,
+						interest.note,
+						interest.active,
+					]),
+				])}
 				listener={listener}
+				interests={interests}
 				stackLines={stackToLines(listener.stack)}
 				timeZones={COMMON_TIME_ZONES}
 			/>

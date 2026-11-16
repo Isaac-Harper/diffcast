@@ -12,9 +12,10 @@ import { formatDate, formatMinutes } from '@/lib/format'
 import { requestOrigin } from '@/lib/http'
 import { listFeedEpisodes } from '@/lib/store/episodes'
 import { latestFeedbackForListener, latestSurvey } from '@/lib/store/feedback'
+import { listInterests } from '@/lib/store/interests'
 import { getListener } from '@/lib/store/listeners'
 import { forwardedIp } from '@/lib/throttle'
-import { FeedbackForm, SurveyForm } from './forms'
+import { FeedbackForm, InterestsForm, SurveyForm } from './forms'
 
 export const metadata: Metadata = {
 	title: 'Your Diffcast',
@@ -28,11 +29,12 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 	const access = await feedAccess(forwardedIp(headerList.get('x-forwarded-for')), token)
 	if (typeof access === 'number') notFound()
 
-	const [listener, episodes, feedback, survey] = await Promise.all([
+	const [listener, episodes, feedback, survey, interests] = await Promise.all([
 		getListener(access.listenerId),
 		listFeedEpisodes(access.listenerId, FEED_EPISODES),
 		latestFeedbackForListener(access.listenerId),
 		latestSurvey(access.listenerId),
+		listInterests(access.listenerId),
 	])
 	if (!listener) notFound()
 	const feed = feedUrl(requestOrigin(headerList), token)
@@ -55,7 +57,12 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 				/>
 			</section>
 
-			{/* INTERESTS SECTION: the listener's interests and takes go here after the interests branch merges. */}
+			<section className="card space-y-3" aria-labelledby="interests-heading">
+				<h2 id="interests-heading" className="font-medium">
+					What your episodes cover
+				</h2>
+				<InterestsForm token={token} interests={interests} />
+			</section>
 
 			<section className="card space-y-2 text-sm" aria-labelledby="feed-heading">
 				<h2 id="feed-heading" className="text-lg font-semibold">

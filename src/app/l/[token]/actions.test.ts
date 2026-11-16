@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { submitFeedback, submitSurvey } from './actions'
+import { saveMyInterests, submitFeedback, submitSurvey } from './actions'
 
 const state = vi.hoisted(() => ({
 	tokens: new Map<string, { id: number; listenerId: number }>(),
 	feedback: [] as { episodeId: number; input: unknown }[],
 	surveys: [] as { listenerId: number; input: unknown }[],
+	interests: [] as { listenerId: number; rows: unknown }[],
 	ip: '192.0.2.50',
 }))
 
@@ -25,6 +26,11 @@ vi.mock('@/lib/store/feed-tokens', () => ({
 vi.mock('@/lib/store/episodes', () => ({
 	listenerOwnsEpisode: async (listenerId: number, episodeId: number) =>
 		(listenerId === 1 && episodeId === 101) || (listenerId === 2 && episodeId === 202),
+}))
+vi.mock('@/lib/store/interests', () => ({
+	saveInterests: async (listenerId: number, rows: unknown) => {
+		state.interests.push({ listenerId, rows })
+	},
 }))
 vi.mock('@/lib/store/feedback', () => ({
 	addFeedback: async (episodeId: number, input: unknown) => {
@@ -50,6 +56,7 @@ describe('listener page actions', () => {
 		state.tokens = new Map([[hashFeedToken(ONE), { id: 11, listenerId: 1 }]])
 		state.feedback.length = 0
 		state.surveys.length = 0
+		state.interests.length = 0
 		state.ip = '192.0.2.50'
 		feedMisses.clear()
 	})
@@ -117,5 +124,48 @@ describe('listener page actions', () => {
 		expect(feedMisses.blocked(state.ip)).toBe(false)
 		for (let index = 0; index < 9; index += 1) feedMisses.add(state.ip)
 		expect(feedMisses.blocked(state.ip)).toBe(true)
+	})
+
+	function interestsForm(token: string, topics: string[]): FormData {
+		const data = form({ token, listenerId: '2', id: '2' })
+		for (const topic of topics) {
+			data.append('topic[]', topic)
+			data.append('take[]', topic === 'Security' ? 'Passkeys are ready' : '')
+			data.append('note[]', '')
+			data.append('active[]', topic === 'Hardware' ? 'false' : 'true')
+		}
+		return data
+	}
+
+	it('saves interests only for the listener the token belongs to', async () => {
+		const result = await saveMyInterests(IDLE, interestsForm(ONE, ['Security', 'Hardware']))
+		expect(result.status).toBe('saved')
+		expect(state.interests).toEqual([
+			{
+				listenerId: 1,
+				rows: [
+					{ topic: 'Security', take: 'Passkeys are ready', note: null, active: true },
+					{ topic: 'Hardware', take: null, note: null, active: false },
+				],
+			},
+		])
+	})
+
+	it('saves no interests for a bad token, a blocked IP or an empty list', async () => {
+		for (const token of [REVOKED, 'nope', '']) {
+			const result = await saveMyInterests(IDLE, interestsForm(token, ['Security']))
+			expect(result.status, token).toBe('error')
+		}
+		expect(await saveMyInterests(IDLE, interestsForm(ONE, []))).toEqual({
+			status: 'error',
+			message: 'Keep at least one interest.',
+		})
+		feedMisses.clear()
+		for (let index = 0; index < 10; index += 1) feedMisses.add(state.ip)
+		expect(await saveMyInterests(IDLE, interestsForm(ONE, ['Security']))).toEqual({
+			status: 'error',
+			message: 'Too many attempts. Try again later.',
+		})
+		expect(state.interests).toEqual([])
 	})
 })

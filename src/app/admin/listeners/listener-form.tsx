@@ -15,6 +15,8 @@ import { useActionState, useState } from 'react'
 import { FormStatus } from '@/app/components/form-status'
 import { SelectField } from '@/app/components/select-field'
 import { SubmitButton } from '@/app/components/submit-button'
+import { InterestsEditor } from '@/app/components/interests-editor'
+import type { InterestRow } from '@/lib/interests'
 import type { Listener } from '@/lib/store/listeners'
 import { previewStack, saveListener } from './actions'
 import type { PreviewResult, SaveResult } from './actions'
@@ -32,6 +34,7 @@ const FORMATS = [
 
 export function ListenerForm({
 	listener,
+	interests,
 	stackLines,
 	timeZones,
 	waitlistId,
@@ -40,6 +43,7 @@ export function ListenerForm({
 	initialFocus,
 }: {
 	listener: Listener | null
+	interests: readonly InterestRow[]
 	stackLines: string
 	timeZones: string[]
 	waitlistId?: number
@@ -115,7 +119,12 @@ export function ListenerForm({
 				<FieldLabel>Focus (what they work on, in their words)</FieldLabel>
 				<Textarea rows={4} maxLength={2000} defaultValue={listener?.focus ?? initialFocus ?? ''} />
 			</Field>
-			{/* INTERESTS SECTION: the interests editor (topic, take, note, active, sort) goes here after the interests branch merges. */}
+			<section className="space-y-3" aria-labelledby="interests-heading">
+				<h2 id="interests-heading" className="text-sm font-medium">
+					Interests
+				</h2>
+				<InterestsEditor initial={interests} />
+			</section>
 			<div className="space-y-2">
 				<Field name="stack">
 					<FieldLabel>Stack</FieldLabel>

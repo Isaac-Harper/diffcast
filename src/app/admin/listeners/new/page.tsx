@@ -1,10 +1,18 @@
 import type { Metadata } from 'next'
 import { requireSession } from '@/lib/auth'
 import { wholeId } from '@/lib/forms'
+import { DEFAULT_INTERESTS } from '@/lib/interests'
 import { getWaitlistEntry } from '@/lib/store/waitlist'
 import { COMMON_TIME_ZONES } from '@/lib/time'
 import { waitlistName } from '@/lib/waitlist'
 import { ListenerForm } from '../listener-form'
+
+const STARTING_INTERESTS = DEFAULT_INTERESTS.map((topic) => ({
+	topic,
+	take: null,
+	note: null,
+	active: true,
+}))
 
 export const metadata: Metadata = { title: 'Add listener' }
 
@@ -22,6 +30,7 @@ export default async function NewListenerPage({ searchParams }: PageProps<'/admi
 					<p className="text-sm text-muted">Inviting {entry.email} from the waitlist</p>
 					<ListenerForm
 						listener={null}
+						interests={STARTING_INTERESTS}
 						stackLines={entry.stack_text}
 						timeZones={COMMON_TIME_ZONES}
 						waitlistId={entry.id}
@@ -31,7 +40,12 @@ export default async function NewListenerPage({ searchParams }: PageProps<'/admi
 					/>
 				</>
 			) : (
-				<ListenerForm listener={null} stackLines="" timeZones={COMMON_TIME_ZONES} />
+				<ListenerForm
+					listener={null}
+					interests={STARTING_INTERESTS}
+					stackLines=""
+					timeZones={COMMON_TIME_ZONES}
+				/>
 			)}
 		</div>
 	)

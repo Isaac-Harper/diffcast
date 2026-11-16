@@ -6,8 +6,10 @@ import { useActionState } from 'react'
 import { ChoiceGroup } from '@/app/components/choice-group'
 import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
+import { InterestsEditor } from '@/app/components/interests-editor'
+import type { InterestRow } from '@/lib/interests'
 import type { Listened, Useful, WouldPay } from '@/lib/episode-types'
-import { submitFeedback, submitSurvey } from './actions'
+import { saveMyInterests, submitFeedback, submitSurvey } from './actions'
 import type { FormResult } from './actions'
 
 const IDLE: FormResult = { status: 'idle', message: '' }
@@ -134,6 +136,26 @@ export function FeedbackForm({
 			</Field>
 			<div className="flex flex-wrap items-center gap-3">
 				<SubmitButton>Send feedback</SubmitButton>
+				<FormStatus status={result.status} message={result.message} />
+			</div>
+		</form>
+	)
+}
+
+export function InterestsForm({
+	token,
+	interests,
+}: {
+	token: string
+	interests: readonly InterestRow[]
+}) {
+	const [result, action] = useActionState(saveMyInterests, IDLE)
+	return (
+		<form action={action} className="space-y-4">
+			<input type="hidden" name="token" value={token} />
+			<InterestsEditor initial={interests} />
+			<div className="flex flex-wrap items-center gap-3">
+				<SubmitButton variant="solid">Save interests</SubmitButton>
 				<FormStatus status={result.status} message={result.message} />
 			</div>
 		</form>
