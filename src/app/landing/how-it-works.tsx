@@ -12,8 +12,8 @@ const STEPS = [
 		coming: false,
 	},
 	{
-		title: 'Listen each weekday',
-		body: 'Two hosts, Mara and Theo, take about ten minutes. Episodes arrive through a private feed in the podcast app you already use.',
+		title: 'Listen on the days you pick',
+		body: 'Two hosts, Mara and Theo, take about ten minutes. Weekdays are the daily news, Saturday recaps your week and Sunday looks at the week ahead. All seven days are on unless you turn some off. Episodes arrive through a private feed in the podcast app you already use.',
 		coming: false,
 	},
 	{

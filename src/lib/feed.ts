@@ -72,7 +72,7 @@ export function buildFeed(
 	<channel>
 		<title>${title}</title>
 		<link>${link}</link>
-		<description>What changed in your stack, every weekday.</description>
+		<description>What changed in your corner of tech, on the days you picked.</description>
 		<language>en-us</language>
 		<itunes:author>Diffcast</itunes:author>
 		<itunes:image href="${image}"/>

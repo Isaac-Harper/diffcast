@@ -13,8 +13,8 @@ export function Hero() {
 					What changed in your corner of tech since yesterday.
 				</h1>
 				<p className="max-w-[34rem] text-lg leading-8 text-pretty text-muted">
-					A private daily podcast on tech and AI news, tuned to your interests and your stack. Every
-					segment cited.
+					A private podcast on tech and AI news every morning, tuned to your interests and your
+					stack. Weekdays bring the news, weekends a recap and a look ahead. Every segment cited.
 				</p>
 				<div className="flex flex-wrap items-center gap-x-6 gap-y-3">
 					<Button data-variant="solid" data-size="lg" render={<Link href="#join" />}>

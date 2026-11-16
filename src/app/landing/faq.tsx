@@ -33,6 +33,12 @@ const QUESTIONS = [
 			'No. They are synthetic voices reading a script written from the day’s sources. A script can still get something wrong, which is why each segment links what it was built from.',
 	},
 	{
+		id: 'days',
+		question: 'Do I get an episode every day?',
+		answer:
+			'By default, yes, all seven. Weekdays are the daily news, Saturday recaps the week in your corner of tech and Sunday is a short look at the week ahead. Turn off any day you do not want. After a day off, the next episode covers everything since your last one.',
+	},
+	{
 		id: 'quiet',
 		question: 'What happens on a slow news day?',
 		answer:

@@ -63,7 +63,9 @@ export function PrivacySummary() {
 }
 
 const INCLUDED = [
-	'One episode each weekday, about ten minutes.',
+	'An episode every morning, about ten minutes, on the days you pick.',
+	'Daily news on weekdays, your week in review on Saturday, the week ahead on Sunday.',
+	'Two hosts with ElevenLabs voices.',
 	'A private feed that works in any podcast app.',
 	'Show notes with the sources for every segment.',
 ] as const
@@ -74,9 +76,9 @@ export function Pricing() {
 			<div className={`${CONTAINER} py-16 sm:py-24`}>
 				<div className="grid gap-10 rounded-card border border-line bg-surface p-7 sm:p-10 md:grid-cols-[auto_1fr] md:items-center md:gap-16">
 					<div>
-						<h2 className="font-mono text-sm text-muted">Planned price</h2>
+						<h2 className="font-mono text-sm text-muted">Standard, planned price</h2>
 						<p className="mt-3 flex items-baseline gap-2">
-							<span className="text-6xl font-semibold tracking-tighter tabular-nums">$15</span>
+							<span className="text-6xl font-semibold tracking-tighter tabular-nums">$25</span>
 							<span className="text-lg text-muted">a month</span>
 						</p>
 					</div>
@@ -90,6 +92,12 @@ export function Pricing() {
 								<li key={item}>{item}</li>
 							))}
 						</ul>
+						<p className="max-w-[56ch] leading-7 text-pretty">
+							<span className="font-medium">Pro, planned at $39 a month:</span>{' '}
+							<span className="text-muted">
+								fifteen minute episodes, with on demand episodes later.
+							</span>
+						</p>
 						<Button render={<Link href="#join" />}>Join the prototype</Button>
 					</div>
 				</div>

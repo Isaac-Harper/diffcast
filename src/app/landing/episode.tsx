@@ -27,6 +27,17 @@ const PARTS = [
 	},
 ] as const
 
+const WEEKEND = [
+	{
+		name: 'Saturday: your week in review',
+		body: 'The biggest stories of the week in your corner of tech, what moved since and what is still developing. Still cited, story by story.',
+	},
+	{
+		name: 'Sunday: the week ahead',
+		body: 'A short look at what is coming: releases, deprecations, events and decisions, with when each one lands.',
+	},
+] as const
+
 const NOTES = [
 	{
 		kind: 'news',
@@ -112,6 +123,15 @@ export function Episode() {
 					</p>
 					<dl className="mt-10 space-y-5">
 						{PARTS.map((part) => (
+							<div key={part.name} className="border-l-2 border-fg pl-5">
+								<dt className="font-medium">{part.name}</dt>
+								<dd className="mt-1 max-w-[48ch] leading-7 text-pretty text-muted">{part.body}</dd>
+							</div>
+						))}
+					</dl>
+					<h3 className="mt-12 font-mono text-sm text-muted">On weekends</h3>
+					<dl className="mt-5 space-y-5">
+						{WEEKEND.map((part) => (
 							<div key={part.name} className="border-l-2 border-fg pl-5">
 								<dt className="font-medium">{part.name}</dt>
 								<dd className="mt-1 max-w-[48ch] leading-7 text-pretty text-muted">{part.body}</dd>
