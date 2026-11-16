@@ -1,29 +1,36 @@
 'use client'
 
-import { useFormStatus } from 'react-dom'
+import { Button } from '@ui-sdk/react/button'
 import type { ReactNode } from 'react'
+import { useFormStatus } from 'react-dom'
+
+export type ButtonVariant = 'solid' | 'destructive' | 'quiet'
 
 export function SubmitButton({
 	children,
-	primary = false,
+	variant,
+	size,
 	name,
 	value,
 }: {
 	children: ReactNode
-	primary?: boolean
+	variant?: ButtonVariant
+	size?: 'lg'
 	name?: string
 	value?: string
 }) {
 	const { pending } = useFormStatus()
 	return (
-		<button
+		<Button
 			type="submit"
 			name={name}
 			value={value}
 			disabled={pending}
-			className={primary ? 'btn btn-primary' : 'btn'}
+			focusableWhenDisabled
+			data-variant={variant}
+			data-size={size}
 		>
 			{children}
-		</button>
+		</Button>
 	)
 }

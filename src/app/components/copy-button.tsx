@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '@ui-sdk/react/button'
 import { useState } from 'react'
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
@@ -12,8 +13,11 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 	}
 
 	return (
-		<button type="button" onClick={copy} className="btn shrink-0" aria-label={`Copy ${label}`}>
-			{copied ? 'Copied' : 'Copy'}
-		</button>
+		<Button onClick={copy} className="shrink-0">
+			<span aria-live="polite">
+				{copied ? 'Copied' : 'Copy'}
+				<span className="sr-only"> {label}</span>
+			</span>
+		</Button>
 	)
 }
