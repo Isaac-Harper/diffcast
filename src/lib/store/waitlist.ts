@@ -4,6 +4,7 @@ export interface WaitlistEntry {
 	id: number
 	email: string
 	podcast_app: string | null
+	interests_text: string
 	stack_text: string
 	created_at: string
 	invited_at: string | null
@@ -12,25 +13,26 @@ export interface WaitlistEntry {
 export async function addWaitlistEntry(input: {
 	email: string
 	podcastApp: string | null
+	interestsText: string
 	stackText: string
 }): Promise<void> {
 	await sql`
-		INSERT INTO waitlist (email, podcast_app, stack_text)
-		VALUES (${input.email}, ${input.podcastApp}, ${input.stackText})
+		INSERT INTO waitlist (email, podcast_app, interests_text, stack_text)
+		VALUES (${input.email}, ${input.podcastApp}, ${input.interestsText}, ${input.stackText})
 		ON CONFLICT (lower(email)) DO NOTHING
 	`
 }
 
 export async function listWaitlist(): Promise<WaitlistEntry[]> {
 	return (await sql`
-		SELECT id, email, podcast_app, stack_text, created_at::text, invited_at::text
+		SELECT id, email, podcast_app, interests_text, stack_text, created_at::text, invited_at::text
 		FROM waitlist ORDER BY created_at DESC, id DESC
 	`) as WaitlistEntry[]
 }
 
 export async function getWaitlistEntry(id: number): Promise<WaitlistEntry | null> {
 	const rows = (await sql`
-		SELECT id, email, podcast_app, stack_text, created_at::text, invited_at::text
+		SELECT id, email, podcast_app, interests_text, stack_text, created_at::text, invited_at::text
 		FROM waitlist WHERE id = ${id}
 	`) as WaitlistEntry[]
 	return rows[0] ?? null

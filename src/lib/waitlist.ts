@@ -13,6 +13,7 @@ export const PODCAST_APPS = [
 ] as const
 
 export const MAX_STACK_TEXT = 20000
+export const MAX_INTERESTS_TEXT = 2000
 
 export const waitlistAttempts = new Throttle(5, 10 * 60 * 1000)
 
@@ -32,6 +33,13 @@ const waitlistSchema = z.object({
 			APP_ERROR
 		)
 		.transform((value) => value || null),
+	interestsText: z
+		.string()
+		.trim()
+		.max(
+			MAX_INTERESTS_TEXT,
+			`Keep what you want to hear about under ${MAX_INTERESTS_TEXT} characters.`
+		),
 	stackText: z
 		.string()
 		.trim()
@@ -45,10 +53,11 @@ function field(form: FormData, key: string): string {
 
 export function parseWaitlistForm(
 	form: FormData
-): Parsed<{ email: string; podcastApp: string | null; stackText: string }> {
+): Parsed<{ email: string; podcastApp: string | null; interestsText: string; stackText: string }> {
 	const parsed = waitlistSchema.safeParse({
 		email: field(form, 'email'),
 		podcastApp: field(form, 'podcastApp'),
+		interestsText: field(form, 'interests'),
 		stackText: field(form, 'stack'),
 	})
 	if (!parsed.success) {

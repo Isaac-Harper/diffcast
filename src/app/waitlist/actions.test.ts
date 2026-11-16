@@ -3,7 +3,12 @@ import { MAX_STACK_TEXT, waitlistAttempts, waitlistName } from '@/lib/waitlist'
 import { joinWaitlist } from './actions'
 
 const state = vi.hoisted(() => ({
-	rows: [] as { email: string; podcastApp: string | null; stackText: string }[],
+	rows: [] as {
+		email: string
+		podcastApp: string | null
+		interestsText: string
+		stackText: string
+	}[],
 	ip: '192.0.2.60',
 }))
 
@@ -19,6 +24,7 @@ vi.mock('@/lib/store/waitlist', () => ({
 	addWaitlistEntry: async (input: {
 		email: string
 		podcastApp: string | null
+		interestsText: string
 		stackText: string
 	}) => {
 		if (state.rows.some((row) => row.email.toLowerCase() === input.email.toLowerCase())) return
@@ -44,17 +50,29 @@ describe('joinWaitlist', () => {
 	it('writes one row with trimmed values', async () => {
 		const result = await joinWaitlist(
 			IDLE,
-			form({ email: '  ana@example.com ', podcastApp: 'Overcast', stack: '  next\nreact  ' })
+			form({
+				email: '  ana@example.com ',
+				podcastApp: 'Overcast',
+				interests: '  AI agents, security  ',
+				stack: '  next\nreact  ',
+			})
 		)
 		expect(result.status).toBe('joined')
 		expect(state.rows).toEqual([
-			{ email: 'ana@example.com', podcastApp: 'Overcast', stackText: 'next\nreact' },
+			{
+				email: 'ana@example.com',
+				podcastApp: 'Overcast',
+				interestsText: 'AI agents, security',
+				stackText: 'next\nreact',
+			},
 		])
 	})
 
 	it('stores null for an empty podcast app and empty stack', async () => {
 		await joinWaitlist(IDLE, form({ email: 'ana@example.com', podcastApp: '' }))
-		expect(state.rows).toEqual([{ email: 'ana@example.com', podcastApp: null, stackText: '' }])
+		expect(state.rows).toEqual([
+			{ email: 'ana@example.com', podcastApp: null, interestsText: '', stackText: '' },
+		])
 	})
 
 	it('rejects an invalid or missing email', async () => {
