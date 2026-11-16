@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"target": "ES2023",
+		"lib": ["ES2023"],
+		"types": ["node"],
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"noEmit": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["src/**/*.ts"]
+}

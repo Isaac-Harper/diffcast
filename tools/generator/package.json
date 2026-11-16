@@ -1,0 +1,25 @@
+{
+	"name": "diffcast-generator",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Diffcast episode generator: research, script, voice, mix, upload",
+	"engines": {
+		"node": ">=22.16.0"
+	},
+	"scripts": {
+		"start": "node --experimental-strip-types src/main.ts",
+		"dry-run": "node --experimental-strip-types src/main.ts --dry-run",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "1.8.0",
+		"@vercel/blob": "2.9.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.20.5",
+		"typescript": "^5.9.3",
+		"vitest": "5.1.0"
+	}
+}

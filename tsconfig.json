@@ -19,7 +19,8 @@
 			}
 		],
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@shared/*": ["./shared/*"]
 		},
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
@@ -37,5 +38,5 @@
 		".next/dev/types/**/*.ts",
 		"**/*.mts"
 	],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "tools"]
 }

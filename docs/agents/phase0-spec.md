@@ -68,7 +68,7 @@ Per listener:
 4. Upload: `POST /api/jobs/upload`, then `put(pathname, file, { access: 'private', token: clientToken })`.
 5. Save: `POST /api/jobs/episodes` with metrics: tokens and searches from the API usage, cost from the current price table in one place (`pricing.ts`, values from the claude-api skill and ElevenLabs list price via `DIFFCAST_TTS_USD_PER_1K_CHARS`).
 
-Any step failing posts `/api/jobs/failures` and moves to the next listener. Work dir `DIFFCAST_WORK_DIR` (default `~/diffcast`) keeps `<listenerId>/<date>/` files (brief, raw reply, episode.json, clips, mix) for 14 days. Flags: `--listener <id>`, `--date`, `--from-step research|tts|mix|upload|save` (resume from saved files), `--dry-run` (fixture episode, silent clips, real mix, no API calls), `--no-upload`, `--now <ISO>` passed to `/api/jobs/due`. Env `DIFFCAST_URL`, `DIFFCAST_JOB_TOKEN`.
+Any step failing posts `/api/jobs/failures` and moves to the next listener. Work dir `DIFFCAST_WORK_DIR` (default `~/diffcast-work`) keeps `<listenerId>/<date>/` files (brief, raw reply, episode.json, clips, mix) for 14 days. Flags: `--listener <id>`, `--date`, `--from-step research|tts|mix|upload|save` (resume from saved files), `--dry-run` (fixture episode, silent clips, real mix, no API calls), `--no-upload`, `--now <ISO>` passed to `/api/jobs/due`. Env `DIFFCAST_URL`, `DIFFCAST_JOB_TOKEN`.
 
 The research loop never gets local tools, files or shell; secrets other than the Anthropic key never enter the prompt.
 

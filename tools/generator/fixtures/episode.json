@@ -1,0 +1,53 @@
+{
+	"title": "Fixture episode for dry runs",
+	"summary": "A fixed script used by --dry-run to exercise voicing, mixing and the work directory without any API calls.",
+	"storyCount": 1,
+	"segments": [
+		{
+			"heading": "A sample release",
+			"kind": "news",
+			"packages": ["zod"],
+			"sources": [{ "title": "Example release notes", "url": "https://example.com/releases/1" }]
+		},
+		{
+			"heading": "What to watch this week",
+			"kind": "watch",
+			"packages": ["next"],
+			"sources": [{ "title": "Example roadmap", "url": "https://example.com/roadmap" }]
+		}
+	],
+	"turns": [
+		{
+			"speaker": "host",
+			"text": "One release matters for your stack today, and it is a small one. This is a fixture episode, so every word you hear is silence, but the shape is real."
+		},
+		{
+			"speaker": "cohost",
+			"text": "So what do I actually have to do? If the answer is nothing, say nothing and let me get back to work."
+		},
+		{
+			"speaker": "host",
+			"text": "Fair. The sample library shipped a patch release that fixes how error messages are formatted when a nested object fails to parse. Nothing in its public API changed, and the release notes say no migration is needed."
+		},
+		{
+			"speaker": "cohost",
+			"text": "Then the practical step is a version bump, run the test suite, and read the diff of any snapshot that prints validation errors. Snapshots are where a formatting change like that shows up first."
+		},
+		{
+			"speaker": "host",
+			"text": "Right, and that is the only story today. We looked at the rest of the stack and found nothing worth your time, so we are keeping this short instead of padding it."
+		},
+		{
+			"speaker": "cohost",
+			"text": "Good. I would rather hear a short episode than a long one about nothing."
+		},
+		{
+			"speaker": "host",
+			"text": "Looking ahead, the framework team has said a minor release is planned for later this week. We will cover it if it lands, and tell you plainly if it slips."
+		},
+		{
+			"speaker": "cohost",
+			"text": "And if it changes caching defaults again, I want the migration notes read out loud, line by line. That is it for today."
+		}
+	]
+}

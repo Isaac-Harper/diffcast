@@ -1,0 +1,18 @@
+{
+	"listeners": [
+		{
+			"listenerId": 1,
+			"date": "2026-11-16",
+			"timezone": "America/Los_Angeles",
+			"minutes": 3,
+			"stack": [
+				{ "name": "next", "ecosystem": "npm" },
+				{ "name": "zod", "ecosystem": "npm" },
+				{ "name": "vitest", "ecosystem": "npm" }
+			],
+			"focus": "A Next.js app with a background job runner.",
+			"recent": [],
+			"feedback": []
+		}
+	]
+}
