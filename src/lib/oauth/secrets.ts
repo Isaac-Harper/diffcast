@@ -16,6 +16,10 @@ export function hashSecret(kind: 'code' | 'access' | 'refresh', secret: string):
 	return createHash('sha256').update(`oauth-${kind}:${secret}`).digest('hex')
 }
 
+export function isCodeVerifier(value: string): boolean {
+	return VERIFIER.test(value)
+}
+
 export function isCodeChallenge(value: string): boolean {
 	return CHALLENGE.test(value)
 }

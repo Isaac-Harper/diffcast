@@ -113,6 +113,7 @@ vi.mock('@/lib/oauth/fetch-metadata-document', async (importOriginal) => ({
 }))
 vi.mock('@/lib/store/listeners', () => ({
 	getListener: async (id: number) => state.listeners.get(id) ?? null,
+	sessionEpoch: async (id: number) => (state.listeners.has(id) ? 0 : null),
 	setListenerDays: async (id: number, days: number[]) => {
 		const listener = state.listeners.get(id)
 		if (listener) listener.days = days
@@ -257,42 +258,44 @@ vi.mock('@/lib/store/oauth', () => {
 				grantId: null,
 			})
 		},
-		consumeCode: async (hash: string) => {
-			const code = state.codes.find((entry) => entry.hash === hash)
-			if (!code) return null
-			if (code.used) return { status: 'reused', grantId: code.grantId }
-			code.used = true
-			return {
-				status: 'fresh',
-				code: {
-					...code,
-					expired: code.expiresAt <= Date.now() + state.now,
-					served: served(code.listenerId),
-				},
-			}
-		},
-		createGrant: async (input: {
-			codeId: number
-			listenerId: number
+		redeemCode: async (input: {
+			codeHash: string
 			clientId: string
+			redirectUri: string
+			codeChallenge: string | null
 			resource: string
-			scope: string
 			tokens: Parameters<typeof insertTokens>[1]
 		}) => {
+			const code = state.codes.find((entry) => entry.hash === input.codeHash)
+			if (!code) return { status: 'unknown' }
+			if (code.used) return { status: 'reused', grantId: code.grantId }
+			code.used = true
+			const row = {
+				...code,
+				expired: code.expiresAt <= Date.now() + state.now,
+				served: served(code.listenerId),
+			}
+			const valid =
+				!row.expired &&
+				row.served &&
+				row.clientId === input.clientId &&
+				row.redirectUri === input.redirectUri &&
+				row.codeChallenge === input.codeChallenge &&
+				row.resource === input.resource
+			if (!valid) return { status: 'refused', code: row }
 			const id = nextId++
 			state.grants.push({
 				id,
-				listenerId: input.listenerId,
-				clientId: input.clientId,
-				resource: input.resource,
-				scope: input.scope,
+				listenerId: code.listenerId,
+				clientId: code.clientId,
+				resource: code.resource,
+				scope: code.scope,
 				revoked: false,
 				lastUsed: 0,
 			})
 			insertTokens(id, input.tokens)
-			const code = state.codes.find((entry) => entry.id === input.codeId)
-			if (code) code.grantId = id
-			return id
+			code.grantId = id
+			return { status: 'redeemed', code: row, grantId: id }
 		},
 		findRefreshToken: async (hash: string) => {
 			const row = state.tokens.find((entry) => entry.hash === hash && entry.kind === 'refresh')
@@ -494,7 +497,7 @@ beforeEach(() => {
 	state.contexts = new Map()
 	state.pushes = new Map()
 	state.fetchedDocuments = []
-	state.cookie = signListenerSession(1, listenerSigningKey())
+	state.cookie = signListenerSession({ listenerId: 1, epoch: 0 }, listenerSigningKey())
 	registrations.clear()
 	tokenAttempts.clear()
 	mcpCalls.clear()
@@ -562,6 +565,30 @@ describe('registration', () => {
 			request('/oauth/register', { method: 'POST', json: { redirect_uris: [REDIRECT] } })
 		)
 		expect(flood.status).toBe(429)
+	})
+})
+
+describe('cursor', () => {
+	const CURSOR = 'cursor://anysphere.cursor-mcp/oauth/callback'
+
+	it('registers with its three callbacks and gets a code back at the app callback', async () => {
+		const clientId = await registerClient([
+			CURSOR,
+			'https://www.cursor.com/agents/mcp/oauth/callback',
+			'http://localhost:8787/callback',
+		])
+		const url = await decide(authorizeQuery(clientId, { redirect_uri: CURSOR }))
+		expect(`${url.protocol}//${url.host}${url.pathname}`).toBe(CURSOR)
+		const code = url.searchParams.get('code') ?? ''
+		const tokens = await exchange({
+			grant_type: 'authorization_code',
+			code,
+			code_verifier: VERIFIER,
+			client_id: clientId,
+			redirect_uri: CURSOR,
+			resource: RESOURCE,
+		})
+		expect(tokens.status).toBe(200)
 	})
 })
 
@@ -673,7 +700,7 @@ describe('authorization and tokens', () => {
 		state.cookie = undefined
 		const unsigned = await decide(authorizeQuery(clientId))
 		expect(unsigned.pathname).toBe('/oauth/authorize')
-		state.cookie = signListenerSession(2, listenerSigningKey())
+		state.cookie = signListenerSession({ listenerId: 2, epoch: 0 }, listenerSigningKey())
 		const unserved = await decide(authorizeQuery(clientId))
 		expect(unserved.pathname).toBe('/oauth/authorize')
 		expect(state.codes).toEqual([])

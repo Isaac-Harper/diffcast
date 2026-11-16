@@ -110,40 +110,38 @@ export async function addCode(input: {
 	`
 }
 
-export async function consumeCode(
+export interface RedeemInput {
 	codeHash: string
-): Promise<
-	{ status: 'fresh'; code: CodeRow } | { status: 'reused'; grantId: number | null } | null
-> {
-	const consumed = (await sql`
-		UPDATE oauth_codes c SET used_at = now()
-		FROM listeners l
-		WHERE c.code_hash = ${codeHash} AND c.used_at IS NULL AND l.id = c.listener_id
-		RETURNING c.id, c.client_id AS "clientId", c.listener_id AS "listenerId",
-			c.redirect_uri AS "redirectUri", c.code_challenge AS "codeChallenge", c.resource, c.scope,
-			(c.expires_at <= now()) AS expired, ${servedListener()} AS served
-	`) as CodeRow[]
-	const code = consumed[0]
-	if (code) return { status: 'fresh', code }
-	const used = (await sql`
-		SELECT grant_id AS "grantId" FROM oauth_codes WHERE code_hash = ${codeHash}
-	`) as { grantId: number | null }[]
-	const row = used[0]
-	return row ? { status: 'reused', grantId: row.grantId } : null
+	clientId: string
+	redirectUri: string
+	codeChallenge: string | null
+	resource: string
+	tokens: TokenPair
 }
 
-export async function createGrant(input: {
-	codeId: number
-	listenerId: number
-	clientId: string
-	resource: string
-	scope: string
-	tokens: TokenPair
-}): Promise<number> {
+export type RedeemOutcome =
+	| { status: 'unknown' }
+	| { status: 'reused'; grantId: number | null }
+	| { status: 'refused'; code: CodeRow }
+	| { status: 'redeemed'; code: CodeRow; grantId: number }
+
+export async function redeemCode(input: RedeemInput): Promise<RedeemOutcome> {
 	const rows = (await sql`
-		WITH grant_row AS (
+		WITH target AS (
+			SELECT c.id, c.client_id AS "clientId", c.listener_id AS "listenerId",
+				c.redirect_uri AS "redirectUri", c.code_challenge AS "codeChallenge", c.resource, c.scope,
+				(c.expires_at <= now()) AS expired, ${servedListener()} AS served
+			FROM oauth_codes c JOIN listeners l ON l.id = c.listener_id
+			WHERE c.code_hash = ${input.codeHash} AND c.used_at IS NULL
+			FOR UPDATE OF c
+		), valid AS (
+			SELECT * FROM target
+			WHERE NOT expired AND served AND "clientId" = ${input.clientId}
+				AND "redirectUri" = ${input.redirectUri} AND "codeChallenge" = ${input.codeChallenge}
+				AND resource = ${input.resource}
+		), grant_row AS (
 			INSERT INTO oauth_grants (listener_id, client_id, resource, scope, last_used_at)
-			VALUES (${input.listenerId}, ${input.clientId}, ${input.resource}, ${input.scope}, now())
+			SELECT "listenerId", "clientId", resource, scope, now() FROM valid
 			RETURNING id
 		), access AS (
 			INSERT INTO oauth_tokens (token_hash, kind, grant_id, expires_at)
@@ -153,14 +151,23 @@ export async function createGrant(input: {
 			INSERT INTO oauth_tokens (token_hash, kind, grant_id, expires_at)
 			SELECT ${input.tokens.refreshHash}, 'refresh', id,
 				${input.tokens.refreshExpiresAt.toISOString()}::timestamptz FROM grant_row
-		), linked AS (
-			UPDATE oauth_codes SET grant_id = grant_row.id FROM grant_row WHERE oauth_codes.id = ${input.codeId}
+		), consumed AS (
+			UPDATE oauth_codes SET used_at = now(), grant_id = (SELECT id FROM grant_row)
+			WHERE id = (SELECT id FROM target)
+			RETURNING id
 		)
-		SELECT id FROM grant_row
-	`) as { id: number }[]
+		SELECT target.*, (SELECT id FROM grant_row) AS "grantId" FROM target
+	`) as (CodeRow & { grantId: number | null })[]
 	const row = rows[0]
-	if (!row) throw new Error('Grant insert returned no row')
-	return row.id
+	if (row) {
+		const { grantId, ...code } = row
+		return grantId === null ? { status: 'refused', code } : { status: 'redeemed', code, grantId }
+	}
+	const used = (await sql`
+		SELECT grant_id AS "grantId" FROM oauth_codes WHERE code_hash = ${input.codeHash}
+	`) as { grantId: number | null }[]
+	const usedRow = used[0]
+	return usedRow ? { status: 'reused', grantId: usedRow.grantId } : { status: 'unknown' }
 }
 
 export async function findRefreshToken(tokenHash: string): Promise<RefreshRow | null> {

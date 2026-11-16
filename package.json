@@ -27,6 +27,7 @@
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
+		"@electric-sql/pglite": "0.5.14",
 		"@modelcontextprotocol/client": "2.4.0",
 		"@monogram/prettier-config": "^0.4.0",
 		"@tailwindcss/turbopack": "4.3.3",

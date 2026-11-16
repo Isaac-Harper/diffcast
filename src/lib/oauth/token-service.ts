@@ -1,14 +1,20 @@
 import {
-	consumeCode,
-	createGrant,
 	findRefreshToken,
+	redeemCode,
 	revokeGrant,
 	revokeToken,
 	rotateRefreshToken,
 } from '../store/oauth'
-import type { TokenPair } from '../store/oauth'
+import type { CodeRow, TokenPair } from '../store/oauth'
 import { ACCESS_TOKEN_SECONDS, REFRESH_TOKEN_SECONDS, resourceFor, sameResource } from './metadata'
-import { hashSecret, isOpaqueSecret, newOpaqueSecret, verifyPkce } from './secrets'
+import {
+	hashSecret,
+	isCodeVerifier,
+	isOpaqueSecret,
+	newOpaqueSecret,
+	s256Challenge,
+	verifyPkce,
+} from './secrets'
 
 export type TokenError =
 	| 'invalid_request'
@@ -85,36 +91,48 @@ async function exchangeCode(
 		)
 	}
 	if (!isOpaqueSecret(code)) return failure('invalid_grant', 'Unknown authorization code.')
-	const consumed = await consumeCode(hashSecret('code', code))
-	if (!consumed) return failure('invalid_grant', 'Unknown authorization code.')
-	if (consumed.status === 'reused') {
-		if (consumed.grantId !== null) await revokeGrant(consumed.grantId)
+	const expected = resourceFor(origin)
+	const tokens = newTokens(now)
+	const outcome = await redeemCode({
+		codeHash: hashSecret('code', code),
+		clientId,
+		redirectUri,
+		codeChallenge: isCodeVerifier(verifier) ? s256Challenge(verifier) : null,
+		resource: resourceMismatch(form, expected) ? '' : expected,
+		tokens: tokens.pair,
+	})
+	if (outcome.status === 'unknown') return failure('invalid_grant', 'Unknown authorization code.')
+	if (outcome.status === 'reused') {
+		if (outcome.grantId !== null) await revokeGrant(outcome.grantId)
 		return failure('invalid_grant', 'This authorization code was already used.')
 	}
-	const row = consumed.code
+	if (outcome.status === 'redeemed') {
+		return { ok: true, body: body(tokens.access, tokens.refresh, outcome.code.scope) }
+	}
+	return refusal(outcome.code, { clientId, redirectUri, verifier }, form, expected)
+}
+
+function refusal(
+	row: CodeRow,
+	request: { clientId: string; redirectUri: string; verifier: string },
+	form: URLSearchParams,
+	expected: string
+): TokenOutcome {
 	if (row.expired) return failure('invalid_grant', 'This authorization code has expired.')
-	if (row.clientId !== clientId)
+	if (row.clientId !== request.clientId) {
 		return failure('invalid_grant', 'The code was issued to another client.')
-	if (row.redirectUri !== redirectUri) {
+	}
+	if (row.redirectUri !== request.redirectUri) {
 		return failure('invalid_grant', 'redirect_uri does not match the authorization request.')
 	}
-	if (!verifyPkce(verifier, row.codeChallenge)) {
+	if (!verifyPkce(request.verifier, row.codeChallenge)) {
 		return failure('invalid_grant', 'code_verifier does not match the code challenge.')
 	}
-	if (row.resource !== resourceFor(origin) || resourceMismatch(form, row.resource)) {
+	if (row.resource !== expected || resourceMismatch(form, expected)) {
 		return failure('invalid_target', 'resource does not match the authorization request.')
 	}
 	if (!row.served) return failure('invalid_grant', 'This Diffcast subscription is not active.')
-	const tokens = newTokens(now)
-	await createGrant({
-		codeId: row.id,
-		listenerId: row.listenerId,
-		clientId: row.clientId,
-		resource: row.resource,
-		scope: row.scope,
-		tokens: tokens.pair,
-	})
-	return { ok: true, body: body(tokens.access, tokens.refresh, row.scope) }
+	throw new Error(`Code ${row.id} was refused for no known reason`)
 }
 
 async function refresh(form: URLSearchParams, origin: string, now: number): Promise<TokenOutcome> {
