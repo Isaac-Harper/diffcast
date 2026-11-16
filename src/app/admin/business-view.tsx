@@ -36,7 +36,7 @@ export function BusinessView({ report }: { report: BusinessReport }) {
 				<Stat
 					label="Episodes today"
 					value={String(report.episodesToday)}
-					detail={`${report.failuresToday} failed runs`}
+					detail={`${report.failuresToday} failed ${report.failuresToday === 1 ? 'run' : 'runs'}`}
 				/>
 			</div>
 
