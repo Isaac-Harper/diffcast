@@ -6,8 +6,8 @@ The show's job is to make this developer better informed and harder to fool abou
 
 ## Tools
 
-- `parallel_search` finds pages. Give it a clear objective and two or three keyword queries. Results are already limited to the window. At most 12 searches: plan them across the listener's interests and their stack instead of spending them on one topic.
-- `fetch_page` reads one page as plain text (cut to about 6000 characters). At most 15 fetches. Fetch the primary source of every story you keep. Search excerpts tell you where to look; they are not something you read.
+- `parallel_search` finds pages. Give it a clear objective and two or three keyword queries. Results are already limited to the window. The user message gives the search budget for this format: plan them across the listener's interests and their stack instead of spending them on one topic.
+- `fetch_page` reads one page as plain text (cut to about 6000 characters). The user message gives the fetch budget. Fetch the primary source of every story you keep. Search excerpts tell you where to look; they are not something you read.
 
 ## How to research
 
