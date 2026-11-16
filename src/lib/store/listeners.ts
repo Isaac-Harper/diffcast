@@ -1,5 +1,6 @@
 import type { Dependency } from '@shared/contract'
 import { sql } from '../db'
+import { DEFAULT_INTERESTS } from '../interests'
 
 export interface Listener {
 	id: number
@@ -59,10 +60,17 @@ export async function listenerExists(id: number): Promise<boolean> {
 
 export async function addListener(input: ListenerInput): Promise<number> {
 	const rows = (await sql`
-		INSERT INTO listeners (name, email, timezone, stack, focus, minutes)
-		VALUES (${input.name}, ${input.email}, ${input.timezone}, ${JSON.stringify(input.stack)}::jsonb,
-			${input.focus}, ${input.minutes})
-		RETURNING id
+		WITH created AS (
+			INSERT INTO listeners (name, email, timezone, stack, focus, minutes)
+			VALUES (${input.name}, ${input.email}, ${input.timezone}, ${JSON.stringify(input.stack)}::jsonb,
+				${input.focus}, ${input.minutes})
+			RETURNING id
+		), seeded AS (
+			INSERT INTO interests (listener_id, topic, sort)
+			SELECT created.id, defaults.topic, (defaults.sort - 1)::int
+			FROM created, unnest(${[...DEFAULT_INTERESTS]}::text[]) WITH ORDINALITY AS defaults (topic, sort)
+		)
+		SELECT id FROM created
 	`) as { id: number }[]
 	const row = rows[0]
 	if (!row) throw new Error('Listener insert returned no row')
