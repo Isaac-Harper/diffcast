@@ -8,6 +8,8 @@ import type { WriterCall, WriterReply } from './writer.ts'
 const listener: DueListener = {
 	listenerId: 3,
 	date: '2026-11-17',
+	format: 'daily',
+	since: '2026-11-16',
 	timezone: 'UTC',
 	minutes: 3,
 	stack: [],

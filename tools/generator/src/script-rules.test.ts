@@ -30,24 +30,32 @@ function script(overrides: Record<string, unknown> = {}, turnWords: number[] = [
 
 describe('wordRange', () => {
 	it('targets the full length for three or more stories', () => {
-		expect(wordRange(10, 3)).toEqual({ target: 1500, min: 1200, max: 1725 })
-		expect(wordRange(10, 7)).toEqual(wordRange(10, 3))
+		expect(wordRange(10, 3, 'daily')).toEqual({ target: 1500, min: 1200, max: 1725 })
+		expect(wordRange(10, 7, 'daily')).toEqual(wordRange(10, 3, 'daily'))
 	})
 
 	it('lowers only the lower bound for one or two stories', () => {
-		expect(wordRange(10, 1)).toEqual({ target: 750, min: 600, max: 1725 })
-		expect(wordRange(10, 2)).toEqual(wordRange(10, 1))
+		expect(wordRange(10, 1, 'daily')).toEqual({ target: 750, min: 600, max: 1725 })
+		expect(wordRange(10, 2, 'daily')).toEqual(wordRange(10, 1, 'daily'))
 	})
 
 	it('makes a 90 second quiet day for zero stories at any length', () => {
-		expect(wordRange(10, 0)).toEqual({ target: 225, min: 135, max: 338 })
-		expect(wordRange(20, 0)).toEqual(wordRange(3, 0))
+		expect(wordRange(10, 0, 'daily')).toEqual({ target: 225, min: 135, max: 338 })
+		expect(wordRange(20, 0, 'daily')).toEqual(wordRange(3, 0, 'daily'))
+	})
+
+	it('keeps the weekly recap at the full length and the week ahead at about 4 minutes', () => {
+		expect(wordRange(10, 3, 'weekly_recap')).toEqual(wordRange(10, 3, 'daily'))
+		expect(wordRange(10, 3, 'week_ahead')).toEqual({ target: 600, min: 480, max: 690 })
+		expect(wordRange(20, 1, 'week_ahead')).toEqual({ target: 300, min: 240, max: 690 })
+		expect(wordRange(3, 3, 'week_ahead')).toEqual(wordRange(3, 3, 'daily'))
+		expect(wordRange(10, 0, 'week_ahead')).toEqual(wordRange(10, 0, 'daily'))
 	})
 })
 
 describe('checkScript', () => {
 	it('accepts a valid script', () => {
-		const check = checkScript(script({}, [150, 150, 150, 150]), 5)
+		const check = checkScript(script({}, [150, 150, 150, 150]), 5, 'daily')
 		expect(check.ok).toBe(true)
 	})
 
@@ -63,14 +71,15 @@ describe('checkScript', () => {
 				sources: source,
 			})
 		)
-		expect(checkScript(script({ segments }, [150, 150, 150, 150]), 5).ok).toBe(true)
-		expect(checkScript(script({}, [150, 150, 150, 150]), 5).ok).toBe(true)
+		expect(checkScript(script({ segments }, [150, 150, 150, 150]), 5, 'daily').ok).toBe(true)
+		expect(checkScript(script({}, [150, 150, 150, 150]), 5, 'daily').ok).toBe(true)
 	})
 
 	it('reports schema issues with their path', () => {
 		const check = checkScript(
 			script({ segments: [{ heading: 'H', kind: 'news', packages: [], sources: [] }] }),
-			3
+			3,
+			'daily'
 		)
 		expect(check.ok).toBe(false)
 		if (!check.ok) {
@@ -83,21 +92,25 @@ describe('checkScript', () => {
 	})
 
 	it('rejects a turn over 180 words', () => {
-		const check = checkScript(script({}, [181, 100]), 3)
+		const check = checkScript(script({}, [181, 100]), 3, 'daily')
 		expect(check).toEqual({ ok: false, problems: ['turns.0 has 181 words, the limit is 180'] })
 	})
 
 	it('rejects a total outside the range for the story count', () => {
-		const short = checkScript(script({ storyCount: 3 }, [100, 100]), 3)
+		expect(checkScript(script({ storyCount: 3 }, [150, 150, 150, 150]), 10, 'week_ahead').ok).toBe(
+			true
+		)
+		expect(checkScript(script({ storyCount: 3 }, [150, 150, 150, 150]), 10, 'daily').ok).toBe(false)
+		const short = checkScript(script({ storyCount: 3 }, [100, 100]), 3, 'daily')
 		expect(short.ok).toBe(false)
 		if (!short.ok) expect(short.problems[0]).toContain('must be between 360 and 518')
-		expect(checkScript(script({ storyCount: 1 }, [100, 100]), 3).ok).toBe(true)
+		expect(checkScript(script({ storyCount: 1 }, [100, 100]), 3, 'daily').ok).toBe(true)
 	})
 
 	it('replaces em and en dashes in turns with commas', () => {
 		const raw = script()
 		raw.turns[0] = { speaker: 'host', text: `${words(99)} a—b – c` }
-		const check = checkScript(raw, 3)
+		const check = checkScript(raw, 3, 'daily')
 		expect(check.ok).toBe(true)
 		if (check.ok) expect(check.episode.turns[0]?.text.endsWith('a, b, c')).toBe(true)
 	})

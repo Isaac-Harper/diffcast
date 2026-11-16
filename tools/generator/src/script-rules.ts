@@ -1,8 +1,9 @@
 import { episodeScriptSchema, WORDS_PER_MINUTE } from '../../../shared/contract.ts'
-import type { EpisodeScript } from '../../../shared/contract.ts'
+import type { EpisodeFormat, EpisodeScript } from '../../../shared/contract.ts'
 
 export const MAX_TURN_WORDS = 180
 export const QUIET_DAY_SECONDS = 90
+export const WEEK_AHEAD_MINUTES = 4
 
 export type WordRange = { target: number; min: number; max: number }
 
@@ -12,8 +13,12 @@ export function wordCount(text: string): number {
 	return text.trim().split(/\s+/).filter(Boolean).length
 }
 
-export function wordRange(minutes: number, storyCount: number): WordRange {
-	const full = minutes * WORDS_PER_MINUTE
+export function showMinutes(minutes: number, format: EpisodeFormat): number {
+	return format === 'week_ahead' ? Math.min(minutes, WEEK_AHEAD_MINUTES) : minutes
+}
+
+export function wordRange(minutes: number, storyCount: number, format: EpisodeFormat): WordRange {
+	const full = showMinutes(minutes, format) * WORDS_PER_MINUTE
 	if (storyCount === 0) {
 		const quiet = (QUIET_DAY_SECONDS / 60) * WORDS_PER_MINUTE
 		return { target: quiet, min: Math.round(quiet * 0.6), max: Math.round(quiet * 1.5) }
@@ -29,7 +34,7 @@ export function removeDashes(text: string): string {
 		.trim()
 }
 
-export function checkScript(raw: unknown, minutes: number): ScriptCheck {
+export function checkScript(raw: unknown, minutes: number, format: EpisodeFormat): ScriptCheck {
 	const parsed = episodeScriptSchema.safeParse(raw)
 	if (!parsed.success) {
 		return {
@@ -49,7 +54,7 @@ export function checkScript(raw: unknown, minutes: number): ScriptCheck {
 			problems.push(`turns.${index} has ${count} words, the limit is ${MAX_TURN_WORDS}`)
 		}
 	})
-	const range = wordRange(minutes, parsed.data.storyCount)
+	const range = wordRange(minutes, parsed.data.storyCount, format)
 	if (words < range.min || words > range.max) {
 		problems.push(
 			`total is ${words} words; with storyCount ${parsed.data.storyCount} it must be between ${range.min} and ${range.max}`

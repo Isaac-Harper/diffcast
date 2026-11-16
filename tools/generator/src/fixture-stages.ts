@@ -28,10 +28,10 @@ export function createFixtureResearcher(notesPath: string): Researcher {
 
 export function createFixtureWriter(episodePath: string): EpisodeWriter {
 	return {
-		async write(_listener, _notes, recordReply) {
+		async write(listener, _notes, recordReply) {
 			const reply = await readFile(episodePath, 'utf8')
 			await recordReply(1, reply)
-			const check = checkScript(JSON.parse(reply), FIXTURE_MINUTES)
+			const check = checkScript(JSON.parse(reply), FIXTURE_MINUTES, listener.format)
 			if (!check.ok) throw new Error(`fixture episode invalid: ${check.problems.join('; ')}`)
 			return {
 				episode: check.episode,

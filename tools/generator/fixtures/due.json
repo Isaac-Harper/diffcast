@@ -3,12 +3,119 @@
 		{
 			"listenerId": 1,
 			"date": "2026-11-16",
+			"format": "daily",
+			"since": null,
 			"timezone": "America/Los_Angeles",
 			"minutes": 3,
 			"stack": [
-				{ "name": "next", "ecosystem": "npm" },
-				{ "name": "zod", "ecosystem": "npm" },
-				{ "name": "vitest", "ecosystem": "npm" }
+				{
+					"name": "next",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "zod",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "vitest",
+					"ecosystem": "npm"
+				}
+			],
+			"focus": "A Next.js app with a background job runner.",
+			"interests": [
+				{
+					"topic": "AI models and agents",
+					"take": "Coding agents are mostly hype for production work.",
+					"note": null
+				},
+				{
+					"topic": "Developer tools and web development",
+					"take": null,
+					"note": "Mostly the React and Next.js world."
+				},
+				{
+					"topic": "Security and privacy",
+					"take": null,
+					"note": null
+				}
+			],
+			"recent": [],
+			"feedback": []
+		},
+		{
+			"listenerId": 2,
+			"date": "2026-11-21",
+			"format": "weekly_recap",
+			"since": "2026-11-20",
+			"timezone": "America/Los_Angeles",
+			"minutes": 3,
+			"stack": [
+				{
+					"name": "next",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "zod",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "vitest",
+					"ecosystem": "npm"
+				}
+			],
+			"focus": "A Next.js app with a background job runner.",
+			"interests": [
+				{
+					"topic": "AI models and agents",
+					"take": "Coding agents are mostly hype for production work.",
+					"note": null
+				},
+				{
+					"topic": "Developer tools and web development",
+					"take": null,
+					"note": "Mostly the React and Next.js world."
+				},
+				{
+					"topic": "Security and privacy",
+					"take": null,
+					"note": null
+				}
+			],
+			"recent": [
+				{
+					"date": "2026-11-20",
+					"title": "A quieter Friday",
+					"segments": [
+						{
+							"heading": "Next.js patch release",
+							"packages": ["next"],
+							"urls": ["https://github.com/vercel/next.js/releases"]
+						}
+					]
+				}
+			],
+			"feedback": []
+		},
+		{
+			"listenerId": 3,
+			"date": "2026-11-22",
+			"format": "week_ahead",
+			"since": "2026-11-21",
+			"timezone": "America/Los_Angeles",
+			"minutes": 3,
+			"stack": [
+				{
+					"name": "next",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "zod",
+					"ecosystem": "npm"
+				},
+				{
+					"name": "vitest",
+					"ecosystem": "npm"
+				}
 			],
 			"focus": "A Next.js app with a background job runner.",
 			"interests": [

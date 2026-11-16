@@ -22,6 +22,8 @@ function dueListener(listenerId: number, minutes: number): DueListener {
 	return {
 		listenerId,
 		date: '2026-11-17',
+		format: 'daily',
+		since: null,
 		timezone: 'Europe/Berlin',
 		minutes,
 		stack: [{ name: 'next', ecosystem: 'npm' }],

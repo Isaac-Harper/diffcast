@@ -23,13 +23,20 @@ function runGenerator(workDirectory: string, args: string[]) {
 }
 
 describe.skipIf(!hasFfmpeg)('dry run', () => {
-	it('produces an mp3 from the fixture due list and resumes from mix with cached clips', async () => {
+	it('produces an mp3 for each format in the fixture due list and resumes from mix with cached clips', async () => {
 		const workDirectory = await mkdtemp(join(tmpdir(), 'diffcast-dry-'))
 		const first = runGenerator(workDirectory, ['--dry-run'])
 		expect(first.status, first.stdout + first.stderr).toBe(0)
-		const mp3 = join(workDirectory, '1', '2026-11-16', 'episode.mp3')
-		expect(await fileExists(mp3)).toBe(true)
-		expect(await probeDurationSeconds(mp3)).toBeGreaterThan(60)
+		expect(first.stdout).toContain('done: 3 ok, 0 failed')
+		for (const [listenerId, date] of [
+			['1', '2026-11-16'],
+			['2', '2026-11-21'],
+			['3', '2026-11-22'],
+		] as const) {
+			const mp3 = join(workDirectory, listenerId, date, 'episode.mp3')
+			expect(await fileExists(mp3), mp3).toBe(true)
+			expect(await probeDurationSeconds(mp3)).toBeGreaterThan(60)
+		}
 
 		const resumed = runGenerator(workDirectory, [
 			'--dry-run',

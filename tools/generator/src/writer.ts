@@ -65,10 +65,14 @@ export function uncitedSources(episode: EpisodeScript, notes: SavedResearchNotes
 	return problems
 }
 
-export function checkReply(reply: string, minutes: number, notes: SavedResearchNotes): ScriptCheck {
+export function checkReply(
+	reply: string,
+	listener: Pick<DueListener, 'minutes' | 'format'>,
+	notes: SavedResearchNotes
+): ScriptCheck {
 	let check: ScriptCheck
 	try {
-		check = checkScript(extractEpisodeJson(reply), minutes)
+		check = checkScript(extractEpisodeJson(reply), listener.minutes, listener.format)
 	} catch (error) {
 		return { ok: false, problems: [error instanceof Error ? error.message : String(error)] }
 	}
@@ -94,7 +98,7 @@ export async function writeWithRetry(
 		replies.push(reply)
 		await recordReply(attempt, reply.text)
 		messages.push({ role: 'assistant', content: reply.text })
-		const check = checkReply(reply.text, listener.minutes, notes)
+		const check = checkReply(reply.text, listener, notes)
 		if (check.ok) {
 			return {
 				episode: check.episode,

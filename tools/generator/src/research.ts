@@ -91,7 +91,7 @@ export function createResearcher(
 				parallel_search: settings.gateway.tools.parallelSearch({
 					maxResults: 8,
 					excerpts: { maxCharsPerResult: 1200 },
-					sourcePolicy: { afterDate: windowStart(listener.date) },
+					sourcePolicy: { afterDate: windowStart(listener) },
 				}),
 				fetch_page: createFetchPageTool(budget, fetched, fetcher),
 			} satisfies ToolSet

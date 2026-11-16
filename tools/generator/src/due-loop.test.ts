@@ -8,6 +8,8 @@ function listener(listenerId: number): DueListener {
 	return {
 		listenerId,
 		date: '2026-11-16',
+		format: 'daily',
+		since: null,
 		timezone: 'UTC',
 		minutes: 10,
 		stack: [],

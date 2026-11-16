@@ -15,17 +15,17 @@ Needs on PATH: Node 22.16 or later, ffmpeg and ffprobe.
 
 ## Environment
 
-| Variable                  | Meaning                                                                                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DIFFCAST_URL`            | Web app origin, for example `https://diffcast-fm.vercel.app`. Required.                                                                     |
-| `DIFFCAST_JOB_TOKEN`      | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                                          |
-| `AI_GATEWAY_API_KEY`      | Vercel AI Gateway key (personal team). Pays for research, writing, search and voice. Required.                                              |
-| `DIFFCAST_RESEARCH_MODEL` | Gateway model id for the research loop. Default `google/gemini-3.8-flash`.                                                                  |
-| `DIFFCAST_WRITER_MODEL`   | Gateway model id for the writing call. Default `anthropic/claude-sonnet-5-5` (Gemini Flash broke the ear and challenge rules).              |
-| `DIFFCAST_TTS_MODEL`      | Gateway speech model id. Default `fish-audio/s2.1-pro`.                                                                                     |
-| `DIFFCAST_HOST_VOICE`     | Voice id for Mara (host) on the speech model. Default `e3cd384158934cc9a01029cd7d278634` (Fish Audio "Laura": warm, conversational).        |
-| `DIFFCAST_COHOST_VOICE`   | Voice id for Theo (cohost). Default `536d3a5e000945adb7038665781a4aca` (Fish Audio "Ethan": clear, matter of fact). Never a Monogram voice. |
-| `DIFFCAST_WORK_DIR`       | Work files go to `<dir>/<listenerId>/<date>/`. Default `~/diffcast-work`, outside the fw13 checkout.                                        |
+| Variable                  | Meaning                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DIFFCAST_URL`            | Web app origin, for example `https://diffcast-fm.vercel.app`. Required.                                                                         |
+| `DIFFCAST_JOB_TOKEN`      | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                                              |
+| `AI_GATEWAY_API_KEY`      | Vercel AI Gateway key (personal team). Pays for research, writing, search and voice. Required.                                                  |
+| `DIFFCAST_RESEARCH_MODEL` | Gateway model id for the research loop. Default `google/gemini-3.8-flash`.                                                                      |
+| `DIFFCAST_WRITER_MODEL`   | Gateway model id for the writing call. Default `anthropic/claude-sonnet-5-5` (Gemini Flash broke the ear and challenge rules).                  |
+| `DIFFCAST_TTS_MODEL`      | Gateway speech model id. Default `elevenlabs/eleven-v4-turbo`.                                                                                  |
+| `DIFFCAST_HOST_VOICE`     | Voice id for Mara (host) on the speech model. Default `XrExE9yKIg1WjnnlVkGX` (the ElevenLabs premade voice the cvzx podcast used for its host). |
+| `DIFFCAST_COHOST_VOICE`   | Voice id for Theo (cohost). Default `iP95p4xoKVk53GoZ742B` (the cvzx podcast's cohost premade voice). Never a Monogram voice.                   |
+| `DIFFCAST_WORK_DIR`       | Work files go to `<dir>/<listenerId>/<date>/`. Default `~/diffcast-work`, outside the fw13 checkout.                                            |
 
 Voice ids belong to the speech model: changing `DIFFCAST_TTS_MODEL` to another provider needs that provider's voice ids too.
 
@@ -42,7 +42,7 @@ pnpm typecheck
 
 Flags:
 
-- `--dry-run`: no network at all. The due list is `fixtures/due.json`, the episode is `fixtures/episode.json`, clips are silence of about the spoken length, the mix is real. Stops after the mix.
+- `--dry-run`: no network at all. The due list is `fixtures/due.json` (one listener per format: a Monday daily, a Saturday weekly recap, a Sunday week ahead), the episode is `fixtures/episode.json`, clips are silence of about the spoken length, the mix is real. Stops after the mix.
 - `--smoke`: end to end test of the deployed app without paid APIs. The episode is `fixtures/episode.json` and clips are silence (no gateway calls), but the due list, upload and save are real against `DIFFCAST_URL`, with `--now` and `--listener` honored. Metrics are zeroed with model `smoke`. It publishes a real (silent) episode for that listener and date, replacing any episode already there, so point it at a test listener: `node --env-file=/etc/diffcast/env --experimental-strip-types src/main.ts --smoke --listener <id> --now <instant in their 03:00 to 05:59 window>`. Not combinable with `--dry-run` or `--no-upload`.
 - `--no-upload`: real research, writing and voice, stop after the mix.
 - `--now <ISO instant>`: passed to `/api/jobs/due` to see who is due at another time (for reruns of a missed hour).
@@ -56,15 +56,17 @@ Work dir per episode: `brief.json`, `research-notes.json` (stories plus every pa
 
 Listeners run one at a time. A failing step posts `/api/jobs/failures` with the step (`research`, `validate`, `tts`, `mix`, `upload`, `save`; a writing call that errors reports as `research`) and the run moves to the next listener; the process exits 1 if any listener failed.
 
-Research: one `generateText` tool loop on `DIFFCAST_RESEARCH_MODEL` with two tools and no files or shell. `parallel_search` is the gateway's Parallel Search (8 results, excerpts of at most 1,200 characters, `sourcePolicy.afterDate` set to the start of the window: the previous day, or the Friday before on a Monday). `fetch_page` (`src/fetch-page.ts`) is local: plain `fetch` with a 20 s timeout, a 2 MB cap, at most 5 redirects, http(s) only, and every hop refused if the host is or resolves to a loopback, private, link local or CGNAT address; Readability over linkedom reduces the HTML to text cut to 6,000 characters. Caps: 12 searches, 15 fetches and 32 steps (`prepareStep` drops a tool at its cap and all tools on the last step, and the fetch tool refuses past its cap). The loop ends in structured notes (`src/research-notes.ts`): stories with headline, what happened, why it matters, dates, interests, packages, suggested kind, quoted take and sources. Sources the model did not actually fetch are removed, and a story left with none is dropped. The listener brief rides in the user message.
+Research: one `generateText` tool loop on `DIFFCAST_RESEARCH_MODEL` with two tools and no files or shell. `parallel_search` is the gateway's Parallel Search (8 results, excerpts of at most 1,200 characters, `sourcePolicy.afterDate` set to the start of the window: the listener's last episode date (`since` in the due list), or yesterday for a first episode, never more than 8 days back). `fetch_page` (`src/fetch-page.ts`) is local: plain `fetch` with a 20 s timeout, a 2 MB cap, at most 5 redirects, http(s) only, and every hop refused if the host is or resolves to a loopback, private, link local or CGNAT address; Readability over linkedom reduces the HTML to text cut to 6,000 characters. Caps: 12 searches, 15 fetches and 32 steps (`prepareStep` drops a tool at its cap and all tools on the last step, and the fetch tool refuses past its cap). The loop ends in structured notes (`src/research-notes.ts`): stories with headline, what happened, why it matters, dates, interests, packages, suggested kind, quoted take and sources. Sources the model did not actually fetch are removed, and a story left with none is dropped. The listener brief rides in the user message.
+
+Formats: the due list gives each listener a `format`. `daily` on weekdays is the daily news. `weekly_recap` on Saturday recaps the listener's week: the researcher starts from this week's stories in `recent`, fetches their sources again and adds what is new. `week_ahead` on Sunday is a short look at the coming seven days (releases, deprecations, events, decisions), mostly `watch` segments. Both prompts carry the rules for each format, and the brief says which one applies.
 
 Writing: one `generateText` call on `DIFFCAST_WRITER_MODEL` with only the brief and the notes (no tools) and structured output shaped by `episodeScriptSchema`. Gemini refuses schemas with many length and count bounds, so the model sees the JSON schema without them (`src/model-schema.ts`) and the reply is validated in code against the full zod schema plus the show rules: every cited url must be in the notes, no turn over 180 words, em and en dashes in turns become commas, and the total word count fits the story count:
 
-| `storyCount` | Words (at 150 per minute of `minutes`)         |
-| ------------ | ---------------------------------------------- |
-| 3 or more    | 80% to 115% of full length                     |
-| 1 or 2       | 40% to 115% of full length (target about half) |
-| 0            | 135 to 338 (a 90 second quiet day)             |
+| `storyCount` | Words (at 150 per minute of `minutes`; the week ahead uses at most 4 minutes) |
+| ------------ | ----------------------------------------------------------------------------- |
+| 3 or more    | 80% to 115% of full length                                                    |
+| 1 or 2       | 40% to 115% of full length (target about half)                                |
+| 0            | 135 to 338 (a 90 second quiet day)                                            |
 
 An invalid reply gets one retry of the writing call with the problems listed, then the listener fails at `validate`. Research is not repeated.
 

@@ -2,9 +2,9 @@ import { homedir } from 'node:os'
 
 export const DEFAULT_RESEARCH_MODEL = 'google/gemini-3.8-flash'
 export const DEFAULT_WRITER_MODEL = 'anthropic/claude-sonnet-5-5'
-export const DEFAULT_TTS_MODEL = 'fish-audio/s2.1-pro'
-export const DEFAULT_HOST_VOICE = 'e3cd384158934cc9a01029cd7d278634'
-export const DEFAULT_COHOST_VOICE = '536d3a5e000945adb7038665781a4aca'
+export const DEFAULT_TTS_MODEL = 'elevenlabs/eleven-v4-turbo'
+export const DEFAULT_HOST_VOICE = 'XrExE9yKIg1WjnnlVkGX'
+export const DEFAULT_COHOST_VOICE = 'iP95p4xoKVk53GoZ742B'
 
 export type JobApiConfig = { jobUrl: string; jobToken: string }
 
