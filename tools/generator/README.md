@@ -1,6 +1,6 @@
 # Diffcast generator
 
-Runs hourly on the home server (fw13). Asks the web app which listeners are due (`/api/jobs/due`), and for each one: researches and writes a two host episode with the Anthropic Messages API (server side `web_search` and `web_fetch` only, prompt in `prompt.md`), voices it with ElevenLabs, mixes it with ffmpeg, uploads it to the private Blob store and saves it through the job API. Request and response bodies come from `shared/contract.ts`; nothing is copied.
+Runs hourly on the home server (fw13). Asks the web app which listeners are due (`/api/jobs/due`), and for each one: researches the day with a tool loop (prompt in `research-prompt.md`), writes a two host episode from the research notes (prompt in `writer-prompt.md`), voices it, mixes it with ffmpeg, uploads it to the private Blob store and saves it through the job API. Every model call goes through Vercel AI Gateway with the AI SDK (`ai`), and every model is set by env. Request and response bodies come from `shared/contract.ts`; nothing is copied.
 
 The generator has its own `pnpm-lock.yaml`; pnpm finds the root `pnpm-workspace.yaml` from here, so every install in this folder passes `--ignore-workspace` (without it pnpm writes into the root lockfile and installs nothing here). Plain TypeScript run by Node's type stripping (`node --experimental-strip-types src/main.ts`, needed on Node 22.16). `shared/contract.ts` imports `zod` from the root `node_modules`, so the root install is required too.
 
@@ -15,18 +15,19 @@ Needs on PATH: Node 22.16 or later, ffmpeg and ffprobe.
 
 ## Environment
 
-| Variable                        | Meaning                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `DIFFCAST_URL`                  | Web app origin, for example `https://diffcast-fm.vercel.app`. Required.                                                   |
-| `DIFFCAST_JOB_TOKEN`            | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                        |
-| `AI_GATEWAY_API_KEY`            | Vercel AI Gateway key (personal team). Research calls the gateway's Anthropic Messages endpoint. Required.                |
-| `DIFFCAST_MODEL`                | Model id. Default `anthropic/claude-sonnet-5-5`. Must have a row in `src/pricing.ts`.                                     |
-| `ELEVENLABS_API_KEY`            | ElevenLabs key. Required.                                                                                                 |
-| `DIFFCAST_HOST_VOICE`           | ElevenLabs voice id for Mara (host). Required.                                                                            |
-| `DIFFCAST_COHOST_VOICE`         | ElevenLabs voice id for Theo (cohost). Required. Pick two premade voices with contrasting timbre. Never a Monogram voice. |
-| `DIFFCAST_TTS_MODEL`            | ElevenLabs model id. Default `eleven_v4`.                                                                                 |
-| `DIFFCAST_TTS_USD_PER_1K_CHARS` | ElevenLabs list price per 1,000 characters on the current plan, for the cost metric. Required.                            |
-| `DIFFCAST_WORK_DIR`             | Work files go to `<dir>/<listenerId>/<date>/`. Default `~/diffcast-work`, outside the fw13 checkout.                      |
+| Variable                  | Meaning                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DIFFCAST_URL`            | Web app origin, for example `https://diffcast-fm.vercel.app`. Required.                                                                     |
+| `DIFFCAST_JOB_TOKEN`      | Bearer token for `/api/jobs/*` (at least 32 characters). Required.                                                                          |
+| `AI_GATEWAY_API_KEY`      | Vercel AI Gateway key (personal team). Pays for research, writing, search and voice. Required.                                              |
+| `DIFFCAST_RESEARCH_MODEL` | Gateway model id for the research loop. Default `google/gemini-3.8-flash`.                                                                  |
+| `DIFFCAST_WRITER_MODEL`   | Gateway model id for the writing call. Default `google/gemini-3.8-flash`.                                                                   |
+| `DIFFCAST_TTS_MODEL`      | Gateway speech model id. Default `fish-audio/s2.1-pro`.                                                                                     |
+| `DIFFCAST_HOST_VOICE`     | Voice id for Mara (host) on the speech model. Default `e3cd384158934cc9a01029cd7d278634` (Fish Audio "Laura": warm, conversational).        |
+| `DIFFCAST_COHOST_VOICE`   | Voice id for Theo (cohost). Default `536d3a5e000945adb7038665781a4aca` (Fish Audio "Ethan": clear, matter of fact). Never a Monogram voice. |
+| `DIFFCAST_WORK_DIR`       | Work files go to `<dir>/<listenerId>/<date>/`. Default `~/diffcast-work`, outside the fw13 checkout.                                        |
+
+Voice ids belong to the speech model: changing `DIFFCAST_TTS_MODEL` to another provider needs that provider's voice ids too.
 
 `--dry-run` needs none of them; `--smoke` needs only `DIFFCAST_URL` and `DIFFCAST_JOB_TOKEN`.
 
@@ -42,20 +43,22 @@ pnpm typecheck
 Flags:
 
 - `--dry-run`: no network at all. The due list is `fixtures/due.json`, the episode is `fixtures/episode.json`, clips are silence of about the spoken length, the mix is real. Stops after the mix.
-- `--smoke`: end to end test of the deployed app without paid APIs. The episode is `fixtures/episode.json` and clips are silence (no Anthropic or ElevenLabs calls), but the due list, upload and save are real against `DIFFCAST_URL`, with `--now` and `--listener` honored. Metrics are zeroed with model `smoke`. It publishes a real (silent) episode for that listener and date, replacing any episode already there, so point it at a test listener: `node --env-file=/etc/diffcast/env --experimental-strip-types src/main.ts --smoke --listener <id> --now <instant in their 03:00 to 05:59 window>`. Not combinable with `--dry-run` or `--no-upload`.
-- `--no-upload`: real research and voice, stop after the mix.
+- `--smoke`: end to end test of the deployed app without paid APIs. The episode is `fixtures/episode.json` and clips are silence (no gateway calls), but the due list, upload and save are real against `DIFFCAST_URL`, with `--now` and `--listener` honored. Metrics are zeroed with model `smoke`. It publishes a real (silent) episode for that listener and date, replacing any episode already there, so point it at a test listener: `node --env-file=/etc/diffcast/env --experimental-strip-types src/main.ts --smoke --listener <id> --now <instant in their 03:00 to 05:59 window>`. Not combinable with `--dry-run` or `--no-upload`.
+- `--no-upload`: real research, writing and voice, stop after the mix.
 - `--now <ISO instant>`: passed to `/api/jobs/due` to see who is due at another time (for reruns of a missed hour).
 - `--listener <id>`: only that listener from the due list; it is an error if they are not due.
 - `--date YYYY-MM-DD` (with `--listener`): overrides the episode date.
-- `--from-step research|tts|mix|upload|save` (with `--listener` and `--date`): resume from files in the work dir; the brief is read from the saved `brief.json`, not fetched. `research` rewrites the episode from the saved brief; `tts` and `mix` reuse cached clips; `upload` uploads the saved mix; `save` re-saves with the url in `upload.json`.
+- `--from-step research|write|tts|mix|upload|save` (with `--listener` and `--date`): resume from files in the work dir; the brief is read from the saved `brief.json`, not fetched. `research` researches and writes again from the saved brief; `write` rewrites the episode from the saved `research-notes.json` (cheap, no searching); `tts` and `mix` reuse cached clips; `upload` uploads the saved mix; `save` re-saves with the url in `upload.json`.
 
-Work dir per episode: `brief.json`, `reply-1.txt` and `reply-2.txt` (raw model replies), `research.json` (usage per request, research time), `episode.json`, `clips/NNN-<speaker>-<hash>.mp3`, `episode.mp3`, `upload.json`. Episode dirs older than 14 days are removed after each run. `<work>/.lock` holds the pid of the running job; a second run exits 1 while that pid is alive, and a stale lock is replaced.
+Work dir per episode: `brief.json`, `research-notes.json` (stories plus every page fetched), `research.json` (model, tokens, cost, searches, fetches, research time), `reply-1.json` and `reply-2.json` (raw writer replies), `episode.json`, `write.json` (model, tokens, cost, attempts), `clips/NNN-<speaker>-<hash>.mp3` with `clips/costs.json` (billed cost per clip), `tts.json`, `episode.mp3`, `upload.json`. Episode dirs older than 14 days are removed after each run. `<work>/.lock` holds the pid of the running job; a second run exits 1 while that pid is alive, and a stale lock is replaced.
 
 ## How a run works
 
-Listeners run one at a time. A failing step posts `/api/jobs/failures` with the step (`research`, `validate`, `tts`, `mix`, `upload`, `save`) and the run moves to the next listener; the process exits 1 if any listener failed.
+Listeners run one at a time. A failing step posts `/api/jobs/failures` with the step (`research`, `validate`, `tts`, `mix`, `upload`, `save`; a writing call that errors reports as `research`) and the run moves to the next listener; the process exits 1 if any listener failed.
 
-Research: one streamed Messages conversation with `web_search_20260209` (at most 15 uses) and `web_fetch_20260209` (at most 25 uses) and no other tools, no files and no shell. `pause_turn` is resumed by resending the conversation, up to 8 times. Server side refusal fallbacks are on (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), so a request may be served by another model; each request is priced by the model that served it. The listener brief rides in the user message; the reply is the episode JSON only (a code fence is tolerated). Validation is `episodeScriptSchema` plus show rules: no turn over 180 words, em and en dashes in turns become commas, and the total word count fits the story count:
+Research: one `generateText` tool loop on `DIFFCAST_RESEARCH_MODEL` with two tools and no files or shell. `parallel_search` is the gateway's Parallel Search (8 results, excerpts of at most 1,200 characters, `sourcePolicy.afterDate` set to the start of the window: the previous day, or the Friday before on a Monday). `fetch_page` (`src/fetch-page.ts`) is local: plain `fetch` with a 20 s timeout, a 2 MB cap, at most 5 redirects, http(s) only, and every hop refused if the host is or resolves to a loopback, private, link local or CGNAT address; Readability over linkedom reduces the HTML to text cut to 6,000 characters. Caps: 12 searches, 15 fetches and 32 steps (`prepareStep` drops a tool at its cap and all tools on the last step, and the fetch tool refuses past its cap). The loop ends in structured notes (`src/research-notes.ts`): stories with headline, what happened, why it matters, dates, interests, packages, suggested kind, quoted take and sources. Sources the model did not actually fetch are removed, and a story left with none is dropped. The listener brief rides in the user message.
+
+Writing: one `generateText` call on `DIFFCAST_WRITER_MODEL` with only the brief and the notes (no tools) and structured output shaped by `episodeScriptSchema`. Gemini refuses schemas with many length and count bounds, so the model sees the JSON schema without them (`src/model-schema.ts`) and the reply is validated in code against the full zod schema plus the show rules: every cited url must be in the notes, no turn over 180 words, em and en dashes in turns become commas, and the total word count fits the story count:
 
 | `storyCount` | Words (at 150 per minute of `minutes`)         |
 | ------------ | ---------------------------------------------- |
@@ -63,13 +66,13 @@ Research: one streamed Messages conversation with `web_search_20260209` (at most
 | 1 or 2       | 40% to 115% of full length (target about half) |
 | 0            | 135 to 338 (a 90 second quiet day)             |
 
-An invalid reply gets one retry in the same conversation with the problems listed, then the listener fails at `validate`.
+An invalid reply gets one retry of the writing call with the problems listed, then the listener fails at `validate`. Research is not repeated.
 
-Voice: one ElevenLabs request per turn with `previous_text` and `next_text`, three at a time. Clips are cached by voice, model and text hash, so a rerun does not pay twice. Requests time out at 120 s; network errors, 429 and 5xx back off with jitter (honoring `retry-after`) for up to about 5 minutes per clip, while other 4xx fail at once with the API message.
+Voice: one `generateSpeech` call per turn through the gateway (mp3), three at a time. Clips are cached by model, voice and text hash, so a rerun does not pay twice. Requests time out at 120 s; network errors, 429 and 5xx back off with jitter (honoring `retry-after`) for up to about 5 minutes per clip, while other 4xx fail at once with the API message.
 
 Mix: 0.3 s gaps between speakers, 0.15 s within a speaker, loudnorm to -16 LUFS, mono 96 kbps mp3; ffprobe reads the duration.
 
-Upload and save: `POST /api/jobs/upload` returns a pathname and a Blob client token, then `put(pathname, file, { access: 'private', token })`; the upload is retried twice with a fresh token. `POST /api/jobs/episodes` saves the episode with metrics: tokens (input includes cache reads and writes), web searches and fetches from the API usage, TTS characters, and costs from `src/pricing.ts` (model prices and the $10 per 1,000 web searches; web fetch is free) and `DIFFCAST_TTS_USD_PER_1K_CHARS`. Job API calls time out at 30 s and retry network errors and 5xx 3 times.
+Upload and save: `POST /api/jobs/upload` returns a pathname and a Blob client token, then `put(pathname, file, { access: 'private', token })`; the upload is retried twice with a fresh token. `POST /api/jobs/episodes` saves the episode with metrics: `model` is `<research model> + <writer model>`, tokens are research plus writing, searches and fetches are the tool calls, and costs are the billed amounts the gateway returns in `providerMetadata.gateway.cost` on every step and speech call (`llmCostUsd` is research and writing with search included, `ttsCostUsd` the clips). There is no price table. Job API calls time out at 30 s and retry network errors and 5xx 3 times.
 
 ## NixOS service and timer
 
