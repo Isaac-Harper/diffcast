@@ -5,6 +5,7 @@ import { formatInstant } from '@/lib/format'
 import { listListenerSummaries } from '@/lib/store/listeners'
 import { requireSession } from '@/lib/auth'
 import { scheduleLabel } from '@/lib/schedule'
+import { PLAN_LABELS, planOf } from '@/lib/served'
 
 export const metadata: Metadata = { title: 'Listeners' }
 
@@ -34,6 +35,7 @@ export default async function ListenersPage() {
 								<th>Schedule</th>
 								<th>Deps</th>
 								<th>Active</th>
+								<th>Plan</th>
 								<th>Episodes</th>
 								<th>Last episode</th>
 								<th>Last feed fetch</th>
@@ -51,6 +53,7 @@ export default async function ListenersPage() {
 									<td className="whitespace-nowrap">{scheduleLabel(listener.days)}</td>
 									<td>{listener.stack.length}</td>
 									<td>{listener.active ? 'yes' : 'no'}</td>
+									<td className="whitespace-nowrap">{PLAN_LABELS[planOf(listener)]}</td>
 									<td>{listener.episode_count}</td>
 									<td className="whitespace-nowrap">{listener.last_episode ?? 'none'}</td>
 									<td className="whitespace-nowrap">{formatInstant(listener.last_fetched_at)}</td>

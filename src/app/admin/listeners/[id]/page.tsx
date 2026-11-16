@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation'
 import { ConfirmAction } from '@/app/components/confirm-action'
 import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
+import { customerDashboardUrl } from '@/lib/billing/stripe'
 import { formatInstant } from '@/lib/format'
+import { PLAN_LABELS, planOf } from '@/lib/served'
 import { wholeId } from '@/lib/forms'
 import { stackToLines } from '@/lib/stack-parser'
 import { listFeedTokens } from '@/lib/store/feed-tokens'
@@ -38,10 +40,30 @@ export default async function ListenerPage({
 				<div>
 					<h1 className="text-xl font-semibold">{listener.name}</h1>
 					<p className="text-sm text-muted">
-						{listener.active ? 'Active' : 'Inactive'} ·{' '}
+						{listener.active ? 'Active' : 'Inactive'} · {PLAN_LABELS[planOf(listener)]}
+						{listener.current_period_end &&
+							` until ${formatInstant(listener.current_period_end)}`}{' '}
+						·{' '}
 						<Link href={`/admin/episodes?listener=${listener.id}`} className="underline">
 							Episodes
 						</Link>
+						{listener.stripe_customer_id && (
+							<>
+								{' '}
+								·{' '}
+								<a
+									href={customerDashboardUrl(
+										listener.stripe_customer_id,
+										process.env['STRIPE_SECRET_KEY'] ?? ''
+									)}
+									className="underline"
+									target="_blank"
+									rel="noreferrer"
+								>
+									Stripe customer
+								</a>
+							</>
+						)}
 					</p>
 				</div>
 				{listener.active ? (
