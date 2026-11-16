@@ -54,13 +54,19 @@ const QUESTIONS = [
 		id: 'agent',
 		question: 'Does the MCP server exist yet?',
 		answer:
-			'No. It is planned for after the prototype. Until then you change your interests and stack by telling us.',
+			'Not yet; it is planned. Until then you change your interests, stack and days in your account, or on the listener page linked from every episode.',
 	},
 	{
-		id: 'when',
-		question: 'When can I get in?',
+		id: 'cancel',
+		question: 'How do I cancel?',
 		answer:
-			'The prototype is small and invite only. Join the list and we will email you when a spot opens. There is no public launch date yet.',
+			'Sign in, open your account and choose Manage billing. Cancel there in a couple of clicks. Episodes keep coming until the end of the month you paid for, and nothing is charged after that.',
+	},
+	{
+		id: 'refund',
+		question: 'Can I get a refund?',
+		answer:
+			'Yes, within 7 days of your first charge. Reply to any Diffcast email or write to hello@diffcast.fm and we will refund it.',
 	},
 ] as const
 

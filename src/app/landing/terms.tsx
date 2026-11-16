@@ -52,7 +52,8 @@ export function PrivacySummary() {
 					<Ledger title="What stays out" sign="-" tone="text-del" items={LEFT_OUT} />
 				</div>
 				<p className="mt-10 max-w-[62ch] leading-7 text-pretty text-muted">
-					Your feed link is private and can be revoked at any time. Ask and we delete your data.{' '}
+					Your feed link is private and you can replace it at any time from your account. Payments
+					go through Stripe; we never see your card. Ask and we delete your data.{' '}
 					<Link href="/privacy" className="font-medium text-fg">
 						Read the privacy page
 					</Link>
@@ -76,7 +77,7 @@ export function Pricing() {
 			<div className={`${CONTAINER} py-16 sm:py-24`}>
 				<div className="grid gap-10 rounded-card border border-line bg-surface p-7 sm:p-10 md:grid-cols-[auto_1fr] md:items-center md:gap-16">
 					<div>
-						<h2 className="font-mono text-sm text-muted">Standard, planned price</h2>
+						<h2 className="font-mono text-sm text-muted">Standard</h2>
 						<p className="mt-3 flex items-baseline gap-2">
 							<span className="text-6xl font-semibold tracking-tighter tabular-nums">$25</span>
 							<span className="text-lg text-muted">a month</span>
@@ -84,8 +85,8 @@ export function Pricing() {
 					</div>
 					<div className="space-y-5">
 						<p className="max-w-[56ch] text-lg leading-8 text-pretty">
-							Diffcast is a small, invite only prototype today. Nothing is for sale yet. This is the
-							price we plan to charge when it opens.
+							One plan, billed monthly from the day you start. Cancel any time and episodes continue
+							to the end of the month you paid for.
 						</p>
 						<ul className="space-y-1.5 text-muted">
 							{INCLUDED.map((item) => (
@@ -93,12 +94,14 @@ export function Pricing() {
 							))}
 						</ul>
 						<p className="max-w-[56ch] leading-7 text-pretty">
-							<span className="font-medium">Pro, planned at $39 a month:</span>{' '}
+							<span className="font-medium">Pro, coming at $39 a month:</span>{' '}
 							<span className="text-muted">
 								fifteen minute episodes, with on demand episodes later.
 							</span>
 						</p>
-						<Button render={<Link href="#join" />}>Join the prototype</Button>
+						<Button data-variant="solid" render={<Link href="/start" />}>
+							Start for $25 a month
+						</Button>
 					</div>
 				</div>
 			</div>

@@ -6,7 +6,7 @@ import { SiteFooter, SiteHeader } from '../components/site-chrome'
 export const metadata: Metadata = {
 	title: 'Privacy',
 	description:
-		'What Diffcast stores during the prototype, what never goes into an episode, and how to have your data deleted.',
+		'What Diffcast stores, what never goes into an episode, who processes payments and email, and how to have your data deleted.',
 	alternates: { canonical: '/privacy' },
 }
 
@@ -14,10 +14,12 @@ const SECTIONS = [
 	{
 		heading: 'What we store',
 		paragraphs: [
-			'Your email address, so we can reach you about the prototype.',
+			'Your email address, for your feed link, sign in links and messages about your subscription.',
+			'Your time zone and the days you want episodes.',
 			'What you tell us you want to hear about: your interests, any takes you add to them, and notes about what you work on.',
-			'The stack you give us. If you paste a file such as a package.json when you join the list, we keep that text until we turn it into a list of package names for your episodes, or until you ask us to delete it.',
-			'Your feedback: whether you listened, whether an episode was useful, any notes you write, and your answer to the pricing question.',
+			'The stack you give us. If you paste a file such as a package.json when you sign up, we keep that text with your signup and turn it into a list of package names for your episodes.',
+			'Your feedback: whether you listened, whether an episode was useful and any notes you write.',
+			'Billing references from Stripe: your Stripe customer and subscription ids, the subscription status and when the current period ends. We never see or store your card number.',
 			'Basic delivery records for your private feed, such as when a podcast app last fetched it and which episodes it downloaded.',
 		],
 	},
@@ -34,7 +36,7 @@ const SECTIONS = [
 		heading: 'Your feed link',
 		paragraphs: [
 			'Each listener gets a private feed link. Anyone who has the link can hear your episodes, so treat it like a password.',
-			'A link can be revoked and replaced at any time. Ask and we will issue a new one.',
+			'You can replace your link and revoke the old ones at any time from your account.',
 		],
 	},
 	{
@@ -42,18 +44,21 @@ const SECTIONS = [
 		paragraphs: [
 			'Diffcast runs on hosted infrastructure, and episodes are written and voiced with third party AI services. To write an episode, the writing service receives your interests, your takes, your package list and any notes you gave us about what you work on. To voice it, the speech service receives the finished script, which is built from public news.',
 			'We have not verified how long those providers retain what they process, so we make no promise about it. This is why private names are kept out of scripts.',
+			'Payments are handled by Stripe. Stripe holds your name, email, card or other payment details, billing address and your invoice and payment history, under its own privacy policy. We see only the references listed above and the amounts charged.',
+			'Email is sent through Resend, which receives your email address and the message: your welcome email, sign in links and subscription notices.',
 		],
 	},
 	{
 		heading: 'Deletion',
 		paragraphs: [
-			`Ask and we delete your data: your email, your interests, your stack, your feedback and your episodes. To ask, write to ${CONTACT_EMAIL}.`,
+			`Ask and we delete your data: your email, your interests, your stack, your feedback and your episodes. To ask, write to ${CONTACT_EMAIL}. Stripe keeps payment records it is required to keep by law.`,
+			'Cancelling stops new episodes but does not delete anything, so you can come back where you left off. Ask if you want it deleted.',
 		],
 	},
 	{
 		heading: 'Changes',
 		paragraphs: [
-			'Diffcast is a small, invite only prototype. This page describes what is true today and will change as the product does.',
+			'This page describes what is true today and will change as the product does. We email subscribers before a change that affects them.',
 		],
 	},
 ] as const

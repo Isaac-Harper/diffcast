@@ -17,8 +17,8 @@ export function Hero() {
 					stack. Weekdays bring the news, weekends a recap and a look ahead. Every segment cited.
 				</p>
 				<div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-					<Button data-variant="solid" data-size="lg" render={<Link href="#join" />}>
-						Join the prototype
+					<Button data-variant="solid" data-size="lg" render={<Link href="/start" />}>
+						Start for $25 a month
 					</Button>
 					<Link href="#episode" className="text-[0.9375rem] font-medium">
 						Read sample show notes
