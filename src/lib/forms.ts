@@ -1,5 +1,5 @@
-import { LISTENED, USEFUL, VERDICTS, WOULD_PAY } from './episode-types'
-import type { Listened, Useful, Verdict, WouldPay } from './episode-types'
+import { LISTENED, USEFUL, VERDICTS } from './episode-types'
+import type { Listened, Useful, Verdict } from './episode-types'
 import { parseStack, STACK_FORMATS } from './stack-parser'
 import type { StackFormat } from './stack-parser'
 import { normalizeDays } from './schedule'
@@ -81,12 +81,6 @@ export function parseFeedbackForm(
 	return { ok: true, input: { listened, useful, note: text(form, 'note', MAX_NOTE) } }
 }
 
-export function parseSurveyForm(form: FormData): Parsed<{ wouldPay: WouldPay; note: string }> {
-	const wouldPay = oneOf(WOULD_PAY, text(form, 'wouldPay', 10))
-	if (!wouldPay) return { ok: false, error: 'Pick yes, maybe or no.' }
-	return { ok: true, input: { wouldPay, note: text(form, 'note', MAX_NOTE) } }
-}
-
 export function parseSegmentCheckForm(
 	form: FormData
 ): Parsed<{ episodeId: number; segmentIndex: number; verdict: Verdict; note: string }> {
@@ -106,4 +100,18 @@ export function parseTokenLabel(form: FormData): Parsed<string> {
 	const label = text(form, 'label', 80)
 	if (!label) return { ok: false, error: 'Name the token, e.g. Overcast.' }
 	return { ok: true, input: label }
+}
+
+export function parseProfileForm(
+	form: FormData
+): Parsed<{ timezone: string; focus: string; stack: ListenerInput['stack'] }> {
+	const timezone = text(form, 'timezone', 100)
+	if (!isTimeZone(timezone)) return { ok: false, error: 'Pick a valid time zone.' }
+	const rawFocus = form.get('focus')
+	const focus = typeof rawFocus === 'string' ? rawFocus.trim() : ''
+	if (focus.length > MAX_NOTE) return { ok: false, error: 'Keep the focus under 2000 characters.' }
+	const rawStack = form.get('stack')
+	const stack = parseStack(typeof rawStack === 'string' ? rawStack : '', stackFormat(form))
+	if (!stack.ok) return { ok: false, error: stack.error }
+	return { ok: true, input: { timezone, focus, stack: stack.dependencies } }
 }
