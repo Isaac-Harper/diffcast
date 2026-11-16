@@ -11,6 +11,7 @@ Phase 0 (prototype) not started. The repo is a Next.js 16 skeleton with a placeh
 - Next.js 16 App Router, React 19, TypeScript strict (extra flags match cvzx), Tailwind 4, pnpm, Node 22.
 - Prettier via `@monogram/prettier-config`, ESLint flat config from `eslint-config-next`, vitest.
 - Vercel project `diffcast` (`prj_vFI5gJAg6BtIDq0cg8lgcyMoCBAS`) in the personal team `isaacs-projects-b02601f4` (`team_SdyKzz4shtFWP7nhrEYgp8JK`). Git integration: pushing `main` deploys production.
+- Production URL: https://diffcast-fm.vercel.app (diffcast.vercel.app belongs to someone else).
 - GitHub `Isaac-Harper/diffcast`, public, MIT.
 
 ## File map
