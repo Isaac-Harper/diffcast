@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-	title: 'Lockfile',
-	description: 'A daily podcast on the stack you actually use.',
+	title: 'Diffcast',
+	description: 'What changed in your stack, every weekday.',
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

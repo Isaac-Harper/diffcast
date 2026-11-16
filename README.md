@@ -1,4 +1,4 @@
-# Lockfile
+# Diffcast
 
 A daily two host podcast on the stack you actually use: releases, deprecations and advisories for your dependencies, each segment cited, with a remote MCP server so your coding agent keeps your interests current.
 

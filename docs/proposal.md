@@ -179,6 +179,8 @@ The working phase plan is in `docs/agents/phases.md`.
 
 ## Name ideas
 
+Decision (2026-11-16): Diffcast, at diffcast.fm.
+
 Top pick: Lockfile. It says "everything you depend on" to any developer and lockfile.fm is open. Domain checks are registry availability via Vercel; trademark and existing-podcast conflicts are not checked.
 
 | Name            | Idea                                   | Domain open                       |
