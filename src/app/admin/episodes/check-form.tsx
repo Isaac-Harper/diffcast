@@ -1,70 +1,64 @@
 'use client'
 
+import { Field, FieldLabel } from '@ui-sdk/react/field'
+import { Input } from '@ui-sdk/react/input'
 import { useActionState } from 'react'
+import { FormStatus } from '@/app/components/form-status'
+import { SelectField } from '@/app/components/select-field'
 import { SubmitButton } from '@/app/components/submit-button'
 import type { Verdict } from '@/lib/episode-types'
 import { saveCheck } from './actions'
 import type { CheckResult } from './actions'
 
+const VERDICT_OPTIONS = [
+	{ value: 'correct', label: 'Correct' },
+	{ value: 'error', label: 'Error' },
+	{ value: 'unclear', label: 'Unclear' },
+]
+
 export function CheckForm({
 	episodeId,
 	segmentIndex,
+	segmentHeading,
 	current,
 }: {
 	episodeId: number
 	segmentIndex: number
+	segmentHeading: string
 	current: { verdict: Verdict; note: string } | null
 }) {
 	const [result, action] = useActionState<CheckResult, FormData>(saveCheck, {
 		status: 'idle',
 		message: '',
 	})
-	const id = `check-${segmentIndex}`
 	return (
 		<form action={action} className="flex flex-wrap items-end gap-2">
 			<input type="hidden" name="episodeId" value={episodeId} />
 			<input type="hidden" name="segmentIndex" value={segmentIndex} />
-			<div>
-				<label htmlFor={`${id}-verdict`} className="label">
+			<div className="min-w-40 space-y-1.5">
+				<p aria-hidden="true" className="text-sm font-medium">
 					Spot check
-				</label>
-				<select
-					id={`${id}-verdict`}
+				</p>
+				<SelectField
 					name="verdict"
-					defaultValue={current?.verdict ?? ''}
+					label={`Spot check (${segmentHeading})`}
+					labelHidden
+					options={VERDICT_OPTIONS}
+					defaultValue={current?.verdict}
+					placeholder="Unchecked"
 					required
-					className="input w-auto"
-				>
-					<option value="" disabled>
-						Unchecked
-					</option>
-					<option value="correct">Correct</option>
-					<option value="error">Error</option>
-					<option value="unclear">Unclear</option>
-				</select>
-			</div>
-			<div className="min-w-40 flex-1">
-				<label htmlFor={`${id}-note`} className="label">
-					Note
-				</label>
-				<input
-					id={`${id}-note`}
-					name="note"
-					maxLength={2000}
-					autoComplete="off"
-					defaultValue={current?.note ?? ''}
-					className="input"
 				/>
 			</div>
-			<SubmitButton>Save</SubmitButton>
-			{result.status !== 'idle' && (
-				<p
-					role={result.status === 'error' ? 'alert' : 'status'}
-					className={result.status === 'error' ? 'text-sm text-red-600' : 'text-sm text-green-700'}
-				>
-					{result.message}
-				</p>
-			)}
+			<Field name="note" className="min-w-40 flex-1">
+				<FieldLabel>
+					Note<span className="sr-only"> ({segmentHeading})</span>
+				</FieldLabel>
+				<Input maxLength={2000} autoComplete="off" defaultValue={current?.note ?? ''} />
+			</Field>
+			<SubmitButton>
+				Save<span className="sr-only"> check ({segmentHeading})</span>
+			</SubmitButton>
+			<FormStatus status={result.status} message={result.message} />
 		</form>
 	)
 }

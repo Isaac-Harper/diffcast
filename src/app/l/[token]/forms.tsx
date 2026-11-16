@@ -1,6 +1,10 @@
 'use client'
 
+import { Field, FieldLabel } from '@ui-sdk/react/field'
+import { Textarea } from '@ui-sdk/react/textarea'
 import { useActionState } from 'react'
+import { ChoiceGroup } from '@/app/components/choice-group'
+import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
 import type { Listened, Useful, WouldPay } from '@/lib/episode-types'
 import { submitFeedback, submitSurvey } from './actions'
@@ -8,40 +12,49 @@ import type { FormResult } from './actions'
 
 const IDLE: FormResult = { status: 'idle', message: '' }
 
-function Status({ result }: { result: FormResult }) {
-	if (result.status === 'idle') return null
-	return (
-		<p
-			role={result.status === 'error' ? 'alert' : 'status'}
-			className={result.status === 'error' ? 'text-sm text-red-600' : 'text-sm text-green-700'}
-		>
-			{result.message}
-		</p>
-	)
-}
+const WOULD_PAY_OPTIONS = [
+	{ value: 'yes', label: 'Yes' },
+	{ value: 'maybe', label: 'Maybe' },
+	{ value: 'no', label: 'No' },
+]
 
-function Choice({
+const LISTENED_OPTIONS = [
+	{ value: 'yes', label: 'Yes' },
+	{ value: 'partly', label: 'Partly' },
+	{ value: 'no', label: 'No' },
+]
+
+const USEFUL_OPTIONS = [
+	{ value: 'up', label: 'Useful' },
+	{ value: 'down', label: 'Not useful' },
+]
+
+function EpisodeChoice({
 	name,
-	value,
-	label,
-	defaultChecked,
+	heading,
+	episodeDate,
+	options,
+	defaultValue,
 }: {
 	name: string
-	value: string
-	label: string
-	defaultChecked: boolean
+	heading: string
+	episodeDate: string
+	options: readonly { value: string; label: string }[]
+	defaultValue: string | null
 }) {
 	return (
-		<label className="inline-flex cursor-pointer items-center rounded-md border border-zinc-300 px-3 py-1.5 text-sm select-none has-checked:border-zinc-900 has-checked:bg-zinc-900 has-checked:text-white has-focus-visible:ring-2 has-focus-visible:ring-zinc-400 dark:border-zinc-700 dark:has-checked:border-zinc-100 dark:has-checked:bg-zinc-100 dark:has-checked:text-zinc-900">
-			<input
-				type="radio"
+		<div className="space-y-1.5">
+			<p aria-hidden="true" className="text-sm font-medium">
+				{heading}
+			</p>
+			<ChoiceGroup
 				name={name}
-				value={value}
-				defaultChecked={defaultChecked}
-				className="sr-only"
+				label={`${heading} (${episodeDate})`}
+				labelHidden
+				options={options}
+				defaultValue={defaultValue}
 			/>
-			{label}
-		</label>
+		</div>
 	)
 }
 
@@ -56,37 +69,25 @@ export function SurveyForm({
 	return (
 		<form action={action} className="space-y-3">
 			<input type="hidden" name="token" value={token} />
-			<fieldset className="flex flex-wrap gap-2">
-				<legend className="sr-only">Would you pay</legend>
-				<Choice
-					name="wouldPay"
-					value="yes"
-					label="Yes"
-					defaultChecked={current?.wouldPay === 'yes'}
-				/>
-				<Choice
-					name="wouldPay"
-					value="maybe"
-					label="Maybe"
-					defaultChecked={current?.wouldPay === 'maybe'}
-				/>
-				<Choice name="wouldPay" value="no" label="No" defaultChecked={current?.wouldPay === 'no'} />
-			</fieldset>
-			<label htmlFor="survey-note" className="sr-only">
-				Note
-			</label>
-			<textarea
-				id="survey-note"
-				name="note"
-				rows={2}
-				maxLength={2000}
-				defaultValue={current?.note ?? ''}
-				placeholder="Anything that would change your answer?"
-				className="input"
+			<ChoiceGroup
+				name="wouldPay"
+				label="Would you pay $15 a month"
+				labelHidden
+				options={WOULD_PAY_OPTIONS}
+				defaultValue={current?.wouldPay ?? null}
 			/>
-			<div className="flex items-center gap-3">
-				<SubmitButton primary>Save answer</SubmitButton>
-				<Status result={result} />
+			<Field name="note">
+				<FieldLabel className="sr-only">Survey note</FieldLabel>
+				<Textarea
+					rows={2}
+					maxLength={2000}
+					defaultValue={current?.note ?? ''}
+					placeholder="Anything that would change your answer?"
+				/>
+			</Field>
+			<div className="flex flex-wrap items-center gap-3">
+				<SubmitButton variant="solid">Save answer</SubmitButton>
+				<FormStatus status={result.status} message={result.message} />
 			</div>
 		</form>
 	)
@@ -95,58 +96,45 @@ export function SurveyForm({
 export function FeedbackForm({
 	token,
 	episodeId,
+	episodeDate,
 	current,
 }: {
 	token: string
 	episodeId: number
+	episodeDate: string
 	current: { listened: Listened; useful: Useful | null; note: string } | null
 }) {
 	const [result, action] = useActionState(submitFeedback, IDLE)
 	return (
-		<form action={action} className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+		<form action={action} className="space-y-4 border-t border-line pt-4">
 			<input type="hidden" name="token" value={token} />
 			<input type="hidden" name="episodeId" value={episodeId} />
-			<fieldset className="flex flex-wrap items-center gap-2">
-				<legend className="mb-1 text-sm font-medium">Did you listen?</legend>
-				<Choice
-					name="listened"
-					value="yes"
-					label="Yes"
-					defaultChecked={current?.listened === 'yes'}
-				/>
-				<Choice
-					name="listened"
-					value="partly"
-					label="Partly"
-					defaultChecked={current?.listened === 'partly'}
-				/>
-				<Choice name="listened" value="no" label="No" defaultChecked={current?.listened === 'no'} />
-			</fieldset>
-			<fieldset className="flex flex-wrap items-center gap-2">
-				<legend className="mb-1 text-sm font-medium">Useful?</legend>
-				<Choice name="useful" value="up" label="Useful" defaultChecked={current?.useful === 'up'} />
-				<Choice
-					name="useful"
-					value="down"
-					label="Not useful"
-					defaultChecked={current?.useful === 'down'}
-				/>
-			</fieldset>
-			<label htmlFor={`note-${episodeId}`} className="sr-only">
-				Note
-			</label>
-			<textarea
-				id={`note-${episodeId}`}
-				name="note"
-				rows={2}
-				maxLength={2000}
-				defaultValue={current?.note ?? ''}
-				placeholder="What should tomorrow do differently?"
-				className="input"
+			<EpisodeChoice
+				name="listened"
+				heading="Did you listen?"
+				episodeDate={episodeDate}
+				options={LISTENED_OPTIONS}
+				defaultValue={current?.listened ?? null}
 			/>
-			<div className="flex items-center gap-3">
+			<EpisodeChoice
+				name="useful"
+				heading="Useful?"
+				episodeDate={episodeDate}
+				options={USEFUL_OPTIONS}
+				defaultValue={current?.useful ?? null}
+			/>
+			<Field name="note">
+				<FieldLabel className="sr-only">Feedback note ({episodeDate})</FieldLabel>
+				<Textarea
+					rows={2}
+					maxLength={2000}
+					defaultValue={current?.note ?? ''}
+					placeholder="What should tomorrow do differently?"
+				/>
+			</Field>
+			<div className="flex flex-wrap items-center gap-3">
 				<SubmitButton>Send feedback</SubmitButton>
-				<Status result={result} />
+				<FormStatus status={result.status} message={result.message} />
 			</div>
 		</form>
 	)

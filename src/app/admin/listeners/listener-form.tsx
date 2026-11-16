@@ -1,170 +1,154 @@
 'use client'
 
-import { useActionState, useState, useTransition } from 'react'
+import { Button } from '@ui-sdk/react/button'
+import { Field, FieldLabel } from '@ui-sdk/react/field'
+import { Input } from '@ui-sdk/react/input'
+import {
+	NumberInput,
+	NumberInputControl,
+	NumberInputDecrement,
+	NumberInputGroup,
+	NumberInputIncrement,
+} from '@ui-sdk/react/number-input'
+import { Textarea } from '@ui-sdk/react/textarea'
+import { useActionState, useState } from 'react'
+import { FormStatus } from '@/app/components/form-status'
+import { SelectField } from '@/app/components/select-field'
 import { SubmitButton } from '@/app/components/submit-button'
 import type { Listener } from '@/lib/store/listeners'
 import { previewStack, saveListener } from './actions'
 import type { PreviewResult, SaveResult } from './actions'
 
 const FORMATS = [
-	['auto', 'Detect format'],
-	['package.json', 'package.json'],
-	['requirements.txt', 'requirements.txt'],
-	['pyproject.toml', 'pyproject.toml'],
-	['Cargo.toml', 'Cargo.toml'],
-	['go.mod', 'go.mod'],
-	['Gemfile', 'Gemfile'],
-	['lines', 'One per line (ecosystem:name)'],
-] as const
+	{ value: 'auto', label: 'Detect format' },
+	{ value: 'package.json', label: 'package.json' },
+	{ value: 'requirements.txt', label: 'requirements.txt' },
+	{ value: 'pyproject.toml', label: 'pyproject.toml' },
+	{ value: 'Cargo.toml', label: 'Cargo.toml' },
+	{ value: 'go.mod', label: 'go.mod' },
+	{ value: 'Gemfile', label: 'Gemfile' },
+	{ value: 'lines', label: 'One per line (ecosystem:name)' },
+]
 
 export function ListenerForm({
 	listener,
 	stackLines,
 	timeZones,
+	waitlistId,
+	initialName,
+	initialEmail,
+	initialFocus,
 }: {
 	listener: Listener | null
 	stackLines: string
 	timeZones: string[]
+	waitlistId?: number
+	initialName?: string
+	initialEmail?: string
+	initialFocus?: string
 }) {
 	const [result, action] = useActionState<SaveResult, FormData>(saveListener, { error: null })
 	const [stack, setStack] = useState(stackLines)
 	const [format, setFormat] = useState<string>(listener ? 'lines' : 'auto')
 	const [preview, setPreview] = useState<PreviewResult | null>(null)
-	const [previewing, startPreview] = useTransition()
 
-	function runPreview() {
-		startPreview(async () => {
-			setPreview(await previewStack(stack, format))
-		})
+	async function runPreview() {
+		setPreview(await previewStack(stack, format))
 	}
 
 	return (
 		<form action={action} className="space-y-4">
 			{listener && <input type="hidden" name="id" value={listener.id} />}
+			{waitlistId !== undefined && <input type="hidden" name="waitlistId" value={waitlistId} />}
 			<div className="grid gap-4 sm:grid-cols-2">
-				<div>
-					<label htmlFor="name" className="label">
-						Name
-					</label>
-					<input
-						id="name"
-						name="name"
+				<Field name="name">
+					<FieldLabel>Name</FieldLabel>
+					<Input
 						required
 						maxLength={120}
 						autoComplete="off"
-						defaultValue={listener?.name ?? ''}
-						className="input"
+						defaultValue={listener?.name ?? initialName ?? ''}
 					/>
-				</div>
-				<div>
-					<label htmlFor="email" className="label">
-						Email (optional)
-					</label>
-					<input
-						id="email"
-						name="email"
+				</Field>
+				<Field name="email">
+					<FieldLabel>Email (optional)</FieldLabel>
+					<Input
 						type="email"
 						autoComplete="off"
 						spellCheck={false}
-						defaultValue={listener?.email ?? ''}
-						className="input"
+						defaultValue={listener?.email ?? initialEmail ?? ''}
 					/>
-				</div>
-				<div>
-					<label htmlFor="timezone" className="label">
-						Time zone
-					</label>
-					<input
-						id="timezone"
-						name="timezone"
+				</Field>
+				<Field name="timezone">
+					<FieldLabel>Time zone</FieldLabel>
+					<Input
 						required
 						list="time-zones"
 						autoComplete="off"
 						spellCheck={false}
 						defaultValue={listener?.timezone ?? 'America/Los_Angeles'}
-						className="input"
 					/>
 					<datalist id="time-zones">
 						{timeZones.map((zone) => (
 							<option key={zone} value={zone} />
 						))}
 					</datalist>
-				</div>
-				<div>
-					<label htmlFor="minutes" className="label">
-						Minutes
-					</label>
-					<input
-						id="minutes"
+				</Field>
+				<Field>
+					<FieldLabel>Minutes</FieldLabel>
+					<NumberInput
 						name="minutes"
-						type="number"
 						min={3}
 						max={20}
 						required
 						defaultValue={listener?.minutes ?? 10}
-						className="input"
-					/>
-				</div>
+					>
+						<NumberInputGroup>
+							<NumberInputDecrement aria-label="Decrease minutes" />
+							<NumberInputControl />
+							<NumberInputIncrement aria-label="Increase minutes" />
+						</NumberInputGroup>
+					</NumberInput>
+				</Field>
 			</div>
-			<div>
-				<label htmlFor="focus" className="label">
-					Focus (what they work on, in their words)
-				</label>
-				<textarea
-					id="focus"
-					name="focus"
-					rows={4}
-					maxLength={2000}
-					defaultValue={listener?.focus ?? ''}
-					className="input"
-				/>
-			</div>
+			<Field name="focus">
+				<FieldLabel>Focus (what they work on, in their words)</FieldLabel>
+				<Textarea rows={4} maxLength={2000} defaultValue={listener?.focus ?? initialFocus ?? ''} />
+			</Field>
+			{/* INTERESTS SECTION: the interests editor (topic, take, note, active, sort) goes here after the interests branch merges. */}
 			<div className="space-y-2">
-				<label htmlFor="stack" className="label">
-					Stack
-				</label>
-				<textarea
-					id="stack"
-					name="stack"
-					rows={8}
-					spellCheck={false}
-					value={stack}
-					onChange={(event) => {
-						setStack(event.target.value)
-						setPreview(null)
-					}}
-					placeholder="Paste package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, a Gemfile, or one package per line"
-					className="input font-mono text-sm"
-				/>
-				<div className="flex flex-wrap items-center gap-2">
-					<label htmlFor="format" className="sr-only">
-						Format
-					</label>
-					<select
-						id="format"
-						name="format"
-						value={format}
-						onChange={(event) => {
-							setFormat(event.target.value)
+				<Field name="stack">
+					<FieldLabel>Stack</FieldLabel>
+					<Textarea
+						rows={8}
+						spellCheck={false}
+						value={stack}
+						onValueChange={(next) => {
+							setStack(next)
 							setPreview(null)
 						}}
-						className="input w-auto"
-					>
-						{FORMATS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
-					<button type="button" onClick={runPreview} disabled={previewing} className="btn">
+						placeholder="Paste package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, a Gemfile, or one package per line"
+						className="font-mono text-sm"
+					/>
+				</Field>
+				<div className="flex flex-wrap items-center gap-2">
+					<SelectField
+						name="format"
+						label="Format"
+						labelHidden
+						options={FORMATS}
+						value={format}
+						onValueChange={(next) => {
+							setFormat(next)
+							setPreview(null)
+						}}
+						className="min-w-64"
+					/>
+					<Button type="button" onClick={runPreview}>
 						Preview packages
-					</button>
+					</Button>
 				</div>
-				{preview && !preview.ok && (
-					<p role="alert" className="text-sm text-red-600">
-						{preview.error}
-					</p>
-				)}
+				{preview && !preview.ok && <FormStatus status="error" message={preview.error} />}
 				{preview?.ok && (
 					<div className="card text-sm">
 						<p className="mb-2 font-medium">{preview.dependencies.length} packages</p>
@@ -172,9 +156,9 @@ export function ListenerForm({
 							{preview.dependencies.map((dependency) => (
 								<li
 									key={`${dependency.ecosystem}:${dependency.name}`}
-									className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-900"
+									className="rounded-control bg-sunken px-1.5 py-0.5"
 								>
-									<span className="muted">{dependency.ecosystem}:</span>
+									<span className="text-muted">{dependency.ecosystem}:</span>
 									{dependency.name}
 								</li>
 							))}
@@ -182,12 +166,8 @@ export function ListenerForm({
 					</div>
 				)}
 			</div>
-			{result.error && (
-				<p role="alert" className="text-sm text-red-600">
-					{result.error}
-				</p>
-			)}
-			<SubmitButton primary>{listener ? 'Save listener' : 'Add listener'}</SubmitButton>
+			{result.error && <FormStatus status="error" message={result.error} />}
+			<SubmitButton variant="solid">{listener ? 'Save listener' : 'Add listener'}</SubmitButton>
 		</form>
 	)
 }

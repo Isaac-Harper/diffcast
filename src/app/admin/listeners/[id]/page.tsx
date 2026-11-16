@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ConfirmAction } from '@/app/components/confirm-action'
+import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
 import { formatInstant } from '@/lib/format'
 import { wholeId } from '@/lib/forms'
@@ -26,29 +28,38 @@ export default async function ListenerPage({
 	const [tokens, query] = await Promise.all([listFeedTokens(listener.id), searchParams])
 
 	return (
-		<div className="max-w-2xl space-y-8">
+		<div className="max-w-3xl space-y-8">
 			<header className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h1 className="text-xl font-semibold">{listener.name}</h1>
-					<p className="muted text-sm">
+					<p className="text-sm text-muted">
 						{listener.active ? 'Active' : 'Inactive'} ·{' '}
 						<Link href={`/admin/episodes?listener=${listener.id}`} className="underline">
 							Episodes
 						</Link>
 					</p>
 				</div>
-				<form action={toggleListener}>
-					<input type="hidden" name="id" value={listener.id} />
-					<input type="hidden" name="active" value={listener.active ? 'false' : 'true'} />
-					<SubmitButton>{listener.active ? 'Deactivate' : 'Reactivate'}</SubmitButton>
-				</form>
+				{listener.active ? (
+					<ConfirmAction
+						action={toggleListener}
+						fields={{ id: String(listener.id), active: 'false' }}
+						trigger="Deactivate"
+						title={`Deactivate ${listener.name}?`}
+						description="The generator stops making episodes for this listener and their feed stops working until reactivated."
+						confirmLabel="Stop their episodes"
+						doneMessage="Listener deactivated."
+						destructive
+					/>
+				) : (
+					<form action={toggleListener}>
+						<input type="hidden" name="id" value={listener.id} />
+						<input type="hidden" name="active" value="true" />
+						<SubmitButton>Reactivate</SubmitButton>
+					</form>
+				)}
 			</header>
 
-			{query['saved'] && (
-				<p role="status" className="text-sm text-green-700">
-					Saved.
-				</p>
-			)}
+			{query['saved'] && <FormStatus status="saved" message="Saved." />}
 
 			<ListenerForm
 				key={JSON.stringify(listener)}
@@ -63,8 +74,8 @@ export default async function ListenerPage({
 				</h2>
 				<IssueToken listenerId={listener.id} />
 				{tokens.length > 0 && (
-					<div className="overflow-x-auto">
-						<table className="table">
+					<div className="table-frame">
+						<table className="data-table">
 							<thead>
 								<tr>
 									<th>Label</th>
@@ -77,20 +88,29 @@ export default async function ListenerPage({
 							</thead>
 							<tbody>
 								{tokens.map((token) => (
-									<tr key={token.id} className={token.revoked_at ? 'muted' : undefined}>
+									<tr key={token.id} className={token.revoked_at ? 'text-muted' : undefined}>
 										<td>{token.label}</td>
 										<td className="whitespace-nowrap">{formatInstant(token.created_at)}</td>
 										<td className="whitespace-nowrap">{formatInstant(token.last_fetched_at)}</td>
 										<td>{token.fetch_count}</td>
-										<td className="max-w-48 truncate">{token.last_user_agent ?? ''}</td>
+										<td className="max-w-40 truncate font-mono text-xs">
+											{token.last_user_agent ?? ''}
+										</td>
 										<td>
 											{token.revoked_at ? (
 												'revoked'
 											) : (
-												<form action={revokeToken}>
-													<input type="hidden" name="tokenId" value={token.id} />
-													<SubmitButton>Revoke</SubmitButton>
-												</form>
+												<ConfirmAction
+													action={revokeToken}
+													fields={{ tokenId: String(token.id) }}
+													trigger="Revoke"
+													triggerDetail={token.label}
+													title={`Revoke the ${token.label} token?`}
+													description="Podcast apps using this link stop getting episodes and it cannot be undone."
+													confirmLabel="Cut off this link"
+													doneMessage="Token revoked."
+													destructive
+												/>
 											)}
 										</td>
 									</tr>

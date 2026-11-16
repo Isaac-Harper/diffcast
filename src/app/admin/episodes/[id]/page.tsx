@@ -30,7 +30,7 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 	return (
 		<div className="max-w-3xl space-y-8">
 			<header className="space-y-1">
-				<p className="muted text-sm">
+				<p className="font-mono text-xs text-muted">
 					<Link href={`/admin/listeners/${episode.listener_id}`} className="underline">
 						{episode.listener_name}
 					</Link>{' '}
@@ -43,7 +43,7 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 			{audio ? (
 				<audio controls preload="none" src={audio} className="w-full" />
 			) : (
-				<p className="muted text-sm">Audio needs BLOB_READ_WRITE_TOKEN.</p>
+				<p className="text-sm text-muted">Audio needs BLOB_READ_WRITE_TOKEN.</p>
 			)}
 
 			<p className="text-pretty">{episode.summary}</p>
@@ -62,8 +62,8 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 					['Saved', formatInstant(episode.created_at)],
 				].map(([label, value]) => (
 					<div key={label} className="card">
-						<dt className="muted">{label}</dt>
-						<dd className="font-medium break-words tabular-nums">{value}</dd>
+						<dt className="font-mono text-xs text-muted">{label}</dt>
+						<dd className="mt-1 font-medium break-words tabular-nums">{value}</dd>
 					</div>
 				))}
 			</dl>
@@ -75,12 +75,13 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 				{episode.segments.map((segment, index) => {
 					const check = checkByIndex.get(index)
 					return (
-						<div key={index} className="card space-y-3">
-							<p className="muted text-xs uppercase">{segment.kind}</p>
+						<div key={segment.heading} className="card space-y-3">
+							<p className="font-mono text-xs text-muted uppercase">{segment.kind}</p>
 							<SegmentList segments={[segment]} />
 							<CheckForm
 								episodeId={episode.id}
 								segmentIndex={index}
+								segmentHeading={segment.heading}
 								current={check ? { verdict: check.verdict, note: check.note } : null}
 							/>
 						</div>
@@ -92,11 +93,11 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 				<h2 id="feedback-heading" className="text-lg font-semibold">
 					Feedback
 				</h2>
-				{feedback.length === 0 && <p className="muted text-sm">None yet.</p>}
+				{feedback.length === 0 && <p className="text-sm text-muted">None yet.</p>}
 				<ul className="space-y-2 text-sm">
 					{feedback.map((row, index) => (
-						<li key={index} className="card">
-							<p className="muted">
+						<li key={`${row.created_at}-${row.listened}`} className="card">
+							<p className="font-mono text-xs text-muted">
 								{formatInstant(row.created_at)} · listened {row.listened}
 								{row.useful ? ` · ${row.useful === 'up' ? 'useful' : 'not useful'}` : ''}
 								{index === 0 ? ' · latest' : ''}
@@ -111,10 +112,10 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 				<h2 id="downloads-heading" className="text-lg font-semibold">
 					Downloads
 				</h2>
-				{downloads.length === 0 && <p className="muted text-sm">None yet.</p>}
+				{downloads.length === 0 && <p className="text-sm text-muted">None yet.</p>}
 				{downloads.length > 0 && (
-					<div className="overflow-x-auto">
-						<table className="table">
+					<div className="table-frame">
+						<table className="data-table">
 							<thead>
 								<tr>
 									<th>At</th>
@@ -123,11 +124,11 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 								</tr>
 							</thead>
 							<tbody>
-								{downloads.map((row, index) => (
-									<tr key={index}>
+								{downloads.map((row) => (
+									<tr key={`${row.at}-${row.label}-${row.user_agent ?? ''}`}>
 										<td className="whitespace-nowrap">{formatInstant(row.at)}</td>
 										<td>{row.label}</td>
-										<td className="max-w-64 truncate">{row.user_agent ?? ''}</td>
+										<td className="max-w-64 truncate font-mono text-xs">{row.user_agent ?? ''}</td>
 									</tr>
 								))}
 							</tbody>
@@ -142,7 +143,7 @@ export default async function EpisodePage({ params }: PageProps<'/admin/episodes
 				</h2>
 				<div className="space-y-3 text-sm">
 					{episode.turns.map((turn, index) => (
-						<p key={index} className="text-pretty">
+						<p key={`${index}-${turn.speaker}`} className="text-pretty">
 							<span className="font-medium">{SPEAKER_NAMES[turn.speaker]}:</span> {turn.text}
 						</p>
 					))}

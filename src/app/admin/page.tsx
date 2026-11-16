@@ -9,11 +9,9 @@ export const metadata: Metadata = { title: 'Gate' }
 function Line({ label, value, met }: { label: string; value: string; met: boolean }) {
 	return (
 		<div className="card space-y-1">
-			<p className="muted text-sm">{label}</p>
-			<p className="text-lg font-semibold tabular-nums">{value}</p>
-			<p className={met ? 'text-sm text-green-700' : 'text-sm text-red-600'}>
-				{met ? 'Met' : 'Not met'}
-			</p>
+			<p className="font-mono text-xs text-muted">{label}</p>
+			<p className="text-2xl font-semibold tabular-nums">{value}</p>
+			<p className={met ? 'text-sm text-add' : 'text-sm text-del'}>{met ? 'Met' : 'Not met'}</p>
 		</div>
 	)
 }
@@ -23,7 +21,7 @@ export default async function GatePage() {
 	const window = gateWindow()
 	if (!window) {
 		return (
-			<p className="card muted text-sm">
+			<p className="card text-sm text-muted">
 				Set DIFFCAST_GATE_START (YYYY-MM-DD) and optionally DIFFCAST_GATE_DAYS to see the Phase 0
 				gate.
 			</p>
@@ -40,7 +38,7 @@ export default async function GatePage() {
 		<div className="space-y-6">
 			<header>
 				<h1 className="text-xl font-semibold">Phase 0 gate</h1>
-				<p className="muted text-sm tabular-nums">
+				<p className="font-mono text-xs text-muted tabular-nums">
 					{window.days} weekdays from {window.start} to {window.dates.at(-1)}
 				</p>
 			</header>
@@ -68,23 +66,23 @@ export default async function GatePage() {
 				/>
 			</div>
 
-			<dl className="grid grid-cols-3 gap-3 text-sm">
+			<dl className="grid gap-3 sm:grid-cols-3">
 				<div className="card">
-					<dt className="muted">Average cost</dt>
-					<dd className="font-semibold tabular-nums">{formatUsd(report.cost.average)}</dd>
+					<dt className="font-mono text-xs text-muted">Average cost</dt>
+					<dd className="text-lg font-semibold tabular-nums">{formatUsd(report.cost.average)}</dd>
 				</div>
 				<div className="card">
-					<dt className="muted">Max cost</dt>
-					<dd className="font-semibold tabular-nums">{formatUsd(report.cost.max)}</dd>
+					<dt className="font-mono text-xs text-muted">Max cost</dt>
+					<dd className="text-lg font-semibold tabular-nums">{formatUsd(report.cost.max)}</dd>
 				</div>
 				<div className="card">
-					<dt className="muted">On time (before 06:00)</dt>
-					<dd className="font-semibold tabular-nums">{formatPercent(report.onTime)}</dd>
+					<dt className="font-mono text-xs text-muted">On time (before 06:00)</dt>
+					<dd className="text-lg font-semibold tabular-nums">{formatPercent(report.onTime)}</dd>
 				</div>
 			</dl>
 
-			<div className="overflow-x-auto">
-				<table className="table">
+			<div className="table-frame">
+				<table className="data-table">
 					<thead>
 						<tr>
 							<th>Listener</th>
@@ -103,8 +101,8 @@ export default async function GatePage() {
 									{row.delivered} of {row.expected}
 								</td>
 								<td>{row.downloaded}</td>
-								<td className={row.meetsListen ? 'text-green-700' : undefined}>{row.listened}</td>
-								<td className={row.meetsStories ? 'text-green-700' : undefined}>{row.storyDays}</td>
+								<td className={row.meetsListen ? 'text-add' : undefined}>{row.listened}</td>
+								<td className={row.meetsStories ? 'text-add' : undefined}>{row.storyDays}</td>
 								<td>{row.wouldPay ?? 'no answer'}</td>
 							</tr>
 						))}
