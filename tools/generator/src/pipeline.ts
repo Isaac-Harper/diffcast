@@ -7,19 +7,29 @@ import type { ClipRenderer } from './clips.ts'
 import type { JobClient } from './job-api.ts'
 import { log } from './log.ts'
 import { mixEpisode, probeMix } from './mix.ts'
+import type { MixedEpisode } from './mix.ts'
 import { llmCostUsd, ttsCostUsd } from './pricing.ts'
 import type { ResearchUsage } from './pricing.ts'
 import type { ScriptWriter } from './script-writer.ts'
 import { inStep, STEPS } from './steps.ts'
 import type { Step } from './steps.ts'
-import { uploadEpisode } from './upload.ts'
 import { episodeDirectory, ensureDirectory, readJsonFile, writeJsonFile } from './work-directory.ts'
+
+export type EpisodeUploader = (
+	listenerId: number,
+	date: string,
+	mixed: MixedEpisode
+) => Promise<string>
+
+export type MetricsMode =
+	{ kind: 'measured'; ttsUsdPerThousandCharacters: number } | { kind: 'zeroed'; model: string }
 
 export type PipelineServices = {
 	jobs: JobClient
 	writer: ScriptWriter
 	renderer: ClipRenderer
-	ttsUsdPerThousandCharacters: number
+	upload: EpisodeUploader
+	metrics: MetricsMode
 }
 
 export type PipelineOptions = {
@@ -81,6 +91,30 @@ export function buildMetrics(
 	}
 }
 
+export function zeroedMetrics(model: string): EpisodeMetrics {
+	return {
+		model,
+		inputTokens: 0,
+		outputTokens: 0,
+		webSearches: 0,
+		webFetches: 0,
+		ttsCharacters: 0,
+		llmCostUsd: 0,
+		ttsCostUsd: 0,
+		researchSeconds: 0,
+	}
+}
+
+function metricsFor(
+	mode: MetricsMode,
+	research: ResearchRecord,
+	episode: EpisodeScript
+): EpisodeMetrics {
+	return mode.kind === 'zeroed'
+		? zeroedMetrics(mode.model)
+		: buildMetrics(research, episode, mode.ttsUsdPerThousandCharacters)
+}
+
 export async function produceEpisode(
 	listener: DueListener,
 	services: PipelineServices,
@@ -140,7 +174,7 @@ export async function produceEpisode(
 			}
 			return saved.url
 		}
-		const url = await uploadEpisode(services.jobs, listenerId, date, mixed)
+		const url = await services.upload(listenerId, date, mixed)
 		await writeJsonFile(uploadFile, { url })
 		return url
 	})
@@ -150,7 +184,7 @@ export async function produceEpisode(
 			...episode,
 			listenerId,
 			date,
-			metrics: buildMetrics(research, episode, services.ttsUsdPerThousandCharacters),
+			metrics: metricsFor(services.metrics, research, episode),
 			audioUrl,
 			audioBytes: mixed.bytes,
 			durationSeconds: mixed.durationSeconds,

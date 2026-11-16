@@ -28,7 +28,7 @@ Needs on PATH: Node 22.16 or later, ffmpeg and ffprobe.
 | `DIFFCAST_TTS_USD_PER_1K_CHARS` | ElevenLabs list price per 1,000 characters on the current plan, for the cost metric. Required.                            |
 | `DIFFCAST_WORK_DIR`             | Work files go to `<dir>/<listenerId>/<date>/`. Default `~/diffcast-work`, outside the fw13 checkout.                      |
 
-`--dry-run` needs none of them.
+`--dry-run` needs none of them; `--smoke` needs only `DIFFCAST_URL` and `DIFFCAST_JOB_TOKEN`.
 
 ## Commands
 
@@ -42,6 +42,7 @@ pnpm typecheck
 Flags:
 
 - `--dry-run`: no network at all. The due list is `fixtures/due.json`, the episode is `fixtures/episode.json`, clips are silence of about the spoken length, the mix is real. Stops after the mix.
+- `--smoke`: end to end test of the deployed app without paid APIs. The episode is `fixtures/episode.json` and clips are silence (no Anthropic or ElevenLabs calls), but the due list, upload and save are real against `DIFFCAST_URL`, with `--now` and `--listener` honored. Metrics are zeroed with model `smoke`. It publishes a real (silent) episode for that listener and date, replacing any episode already there, so point it at a test listener: `node --env-file=/etc/diffcast/env --experimental-strip-types src/main.ts --smoke --listener <id> --now <instant in their 03:00 to 05:59 window>`. Not combinable with `--dry-run` or `--no-upload`.
 - `--no-upload`: real research and voice, stop after the mix.
 - `--now <ISO instant>`: passed to `/api/jobs/due` to see who is due at another time (for reruns of a missed hour).
 - `--listener <id>`: only that listener from the due list; it is an error if they are not due.

@@ -1,5 +1,5 @@
 {
-	"title": "Fixture episode for dry runs",
+	"title": "Fixture episode, no real news",
 	"summary": "A fixed script used by --dry-run to exercise voicing, mixing and the work directory without any API calls.",
 	"storyCount": 1,
 	"segments": [

@@ -7,6 +7,7 @@ export type RunOptions = {
 	date: string | null
 	fromStep: Step | null
 	dryRun: boolean
+	smoke: boolean
 	noUpload: boolean
 	now: string | null
 }
@@ -24,6 +25,7 @@ export function parseRunOptions(args: string[]): RunOptions {
 			date: { type: 'string' },
 			'from-step': { type: 'string' },
 			'dry-run': { type: 'boolean', default: false },
+			smoke: { type: 'boolean', default: false },
 			'no-upload': { type: 'boolean', default: false },
 			now: { type: 'string' },
 		},
@@ -47,11 +49,15 @@ export function parseRunOptions(args: string[]): RunOptions {
 	const now = values.now ?? null
 	if (now !== null && Number.isNaN(Date.parse(now))) throw new Error('--now must be an ISO instant')
 	if (now !== null && fromStep !== null) throw new Error('--now has no effect with --from-step')
+	if (values['dry-run'] && values.smoke) throw new Error('--dry-run and --smoke are exclusive')
+	if (values.smoke && values['no-upload'])
+		throw new Error('--smoke always uploads; drop --no-upload')
 	return {
 		listenerId,
 		date,
 		fromStep,
 		dryRun: values['dry-run'],
+		smoke: values.smoke,
 		noUpload: values['no-upload'],
 		now,
 	}
