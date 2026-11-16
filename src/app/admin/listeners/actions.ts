@@ -17,6 +17,7 @@ import {
 	setListenerActive,
 	updateListener,
 } from '@/lib/store/listeners'
+import { markWaitlistInvited } from '@/lib/store/waitlist'
 
 export type SaveResult = { error: string | null }
 export type PreviewResult = { ok: true; dependencies: Dependency[] } | { ok: false; error: string }
@@ -32,6 +33,8 @@ export async function saveListener(_previous: SaveResult, form: FormData): Promi
 	const id = wholeId(form.get('id'))
 	if (id === null) {
 		const created = await addListener(parsed.input)
+		const waitlistId = wholeId(form.get('waitlistId'))
+		if (waitlistId !== null) await markWaitlistInvited(waitlistId)
 		redirect(`/admin/listeners/${created}`)
 	}
 	if (!(await listenerExists(id))) return { error: 'Unknown listener.' }

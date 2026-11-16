@@ -40,6 +40,11 @@ vi.mock('@/lib/store/listeners', () => ({
 		state.writes.push('setListenerActive')
 	},
 }))
+vi.mock('@/lib/store/waitlist', () => ({
+	markWaitlistInvited: async (id: number) => {
+		state.writes.push(`markWaitlistInvited:${id}`)
+	},
+}))
 vi.mock('@/lib/store/feed-tokens', () => ({
 	addFeedToken: async () => {
 		state.writes.push('addFeedToken')
@@ -122,5 +127,28 @@ describe('admin actions', () => {
 		await toggleListener(form({ id: '1', active: 'false' }))
 		await revokeToken(form({ tokenId: '1' }))
 		expect(state.writes).toEqual(['addFeedToken', 'setListenerActive', 'revokeFeedToken'])
+	})
+
+	it('stamps the waitlist entry when a listener is created from it', async () => {
+		state.session = signSession(signingKey(SECRET, PASSWORD))
+		await expect(
+			saveListener(
+				{ error: null },
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', waitlistId: '7' })
+			)
+		).rejects.toMatchObject({
+			digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/admin\/listeners\/1/),
+		})
+		expect(state.writes).toEqual(['addListener', 'markWaitlistInvited:7'])
+	})
+
+	it('does not stamp the waitlist without a session', async () => {
+		await expect(
+			saveListener(
+				{ error: null },
+				form({ name: 'Ana', timezone: 'UTC', minutes: '10', waitlistId: '7' })
+			)
+		).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT;.*\/login/) })
+		expect(state.writes).toEqual([])
 	})
 })
