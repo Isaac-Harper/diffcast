@@ -2,24 +2,17 @@
 
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { currentMailer } from '@/lib/email/resend-mailer'
-import { signInEmail } from '@/lib/email/templates'
 import { requestOrigin } from '@/lib/http'
 import {
 	endListenerSession,
 	returnPathAfterSignIn,
 	startListenerSession,
 } from '@/lib/listener-auth'
-import { safeReturnPath } from '@/lib/return-path'
-import {
-	hashLoginToken,
-	isLoginToken,
-	LOGIN_TOKEN_TTL_MS,
-	newLoginToken,
-} from '@/lib/listener-session'
+import { hashLoginToken, isLoginToken } from '@/lib/listener-session'
 import { clientIp } from '@/lib/login-throttle'
-import { parseSignInEmail, SIGN_IN_SENT, signInByEmail, signInByIp } from '@/lib/signin'
-import { addLoginToken, consumeLoginToken } from '@/lib/store/login-tokens'
+import { parseSignInEmail, SIGN_IN_SENT, signInByIp } from '@/lib/signin'
+import { claimSignInEmail, sendSignInLink } from '@/lib/signin-link'
+import { consumeLoginToken } from '@/lib/store/login-tokens'
 import { findServedListenerByEmail } from '@/lib/store/listeners'
 
 export type SignInResult = { status: 'idle' | 'saved' | 'error'; message: string }
@@ -35,19 +28,14 @@ export async function requestSignIn(
 		return { status: 'error', message: 'Too many attempts. Try again in ten minutes.' }
 	}
 	signInByIp.add(ip)
-	if (signInByEmail.blocked(email)) return { status: 'saved', message: SIGN_IN_SENT }
-	signInByEmail.add(email)
+	if (!claimSignInEmail(email)) return { status: 'saved', message: SIGN_IN_SENT }
 	const listener = await findServedListenerByEmail(email)
 	if (listener?.email) {
-		const token = newLoginToken()
-		await addLoginToken(
-			listener.id,
-			hashLoginToken(token),
-			new Date(Date.now() + LOGIN_TOKEN_TTL_MS)
+		await sendSignInLink(
+			{ id: listener.id, email: listener.email },
+			requestOrigin(await headers()),
+			form.get('next')
 		)
-		const next = safeReturnPath(form.get('next'))
-		const url = `${requestOrigin(await headers())}/signin/confirm?token=${token}${next ? `&next=${encodeURIComponent(next)}` : ''}`
-		await currentMailer().send(signInEmail({ to: listener.email, url }))
 	}
 	return { status: 'saved', message: SIGN_IN_SENT }
 }

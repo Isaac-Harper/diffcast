@@ -8,10 +8,16 @@ import {
 	verifyListenerSession,
 } from './listener-session'
 import { RETURN_COOKIE, safeReturnPath } from './return-path'
+import { bumpSessionEpoch, sessionEpoch } from './store/listeners'
 
 export async function sessionListenerId(): Promise<number | null> {
-	const token = (await cookies()).get(LISTENER_COOKIE)?.value
-	return verifyListenerSession(token, listenerSigningKey())
+	const session = verifyListenerSession(
+		(await cookies()).get(LISTENER_COOKIE)?.value,
+		listenerSigningKey()
+	)
+	if (!session) return null
+	const current = await sessionEpoch(session.listenerId)
+	return current === session.epoch ? session.listenerId : null
 }
 
 export async function requireListener(): Promise<number> {
@@ -20,14 +26,33 @@ export async function requireListener(): Promise<number> {
 	return listenerId
 }
 
+async function setSessionCookie(listenerId: number, epoch: number): Promise<void> {
+	;(await cookies()).set(
+		LISTENER_COOKIE,
+		signListenerSession({ listenerId, epoch }, listenerSigningKey()),
+		{
+			httpOnly: true,
+			secure: process.env['NODE_ENV'] === 'production',
+			sameSite: 'lax',
+			path: '/',
+			maxAge: LISTENER_SESSION_MAX_AGE,
+		}
+	)
+}
+
 export async function startListenerSession(listenerId: number): Promise<void> {
-	;(await cookies()).set(LISTENER_COOKIE, signListenerSession(listenerId, listenerSigningKey()), {
-		httpOnly: true,
-		secure: process.env['NODE_ENV'] === 'production',
-		sameSite: 'lax',
-		path: '/',
-		maxAge: LISTENER_SESSION_MAX_AGE,
-	})
+	const epoch = await sessionEpoch(listenerId)
+	if (epoch === null) throw new Error(`Cannot start a session for missing listener ${listenerId}`)
+	await setSessionCookie(listenerId, epoch)
+}
+
+export async function endOtherSessions(listenerId: number): Promise<void> {
+	await setSessionCookie(listenerId, await bumpSessionEpoch(listenerId))
+}
+
+export async function endAllSessions(listenerId: number): Promise<void> {
+	await bumpSessionEpoch(listenerId)
+	;(await cookies()).delete(LISTENER_COOKIE)
 }
 
 export async function returnPathAfterSignIn(next: unknown): Promise<string> {

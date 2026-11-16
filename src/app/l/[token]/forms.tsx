@@ -8,7 +8,24 @@ import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
 import type { Listened, Useful } from '@/lib/episode-types'
 import { IDLE } from '@/lib/form-result'
-import { submitFeedback } from './actions'
+import { emailMySignInLink, submitFeedback } from './actions'
+
+export function SignInLinkForm({ token }: { token: string }) {
+	const [result, action] = useActionState(emailMySignInLink, IDLE)
+	return (
+		<form action={action} className="flex flex-wrap items-center gap-3 pt-2">
+			<input type="hidden" name="token" value={token} />
+			<SubmitButton>Email me a sign in link</SubmitButton>
+			{result.status === 'idle' ? (
+				<span className="text-sm text-muted">
+					For billing, your stack, new feed links and connecting your coding agent.
+				</span>
+			) : (
+				<FormStatus status={result.status} message={result.message} />
+			)}
+		</form>
+	)
+}
 
 const LISTENED_OPTIONS = [
 	{ value: 'yes', label: 'Yes' },

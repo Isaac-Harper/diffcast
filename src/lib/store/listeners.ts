@@ -119,6 +119,22 @@ export async function listenerNames(): Promise<{ id: number; name: string }[]> {
 	return (await sql`SELECT id, name FROM listeners ORDER BY name`) as { id: number; name: string }[]
 }
 
+export async function sessionEpoch(id: number): Promise<number | null> {
+	const rows = (await sql`SELECT session_epoch FROM listeners WHERE id = ${id}`) as {
+		session_epoch: number
+	}[]
+	return rows[0]?.session_epoch ?? null
+}
+
+export async function bumpSessionEpoch(id: number): Promise<number> {
+	const rows = (await sql`
+		UPDATE listeners SET session_epoch = session_epoch + 1 WHERE id = ${id} RETURNING session_epoch
+	`) as { session_epoch: number }[]
+	const row = rows[0]
+	if (!row) throw new Error(`Cannot end sessions for missing listener ${id}`)
+	return row.session_epoch
+}
+
 export async function setListenerProfile(
 	id: number,
 	input: { timezone: string; focus: string; stack: Dependency[] }

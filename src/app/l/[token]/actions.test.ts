@@ -1,49 +1,46 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { feedMisses } from '@/lib/feed-access'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { LISTENER_COOKIE, listenerSigningKey, verifyListenerSession } from '@/lib/listener-session'
-import { openMyAccount, saveMyDays, saveMyInterests, submitFeedback } from './actions'
+import { FakeMailer } from '@/lib/email/fake-mailer'
+import { hashLoginToken } from '@/lib/listener-session'
+import { SIGN_IN_SENT, signInByEmail, signInByIp } from '@/lib/signin'
+import { emailMySignInLink, saveMyDays, saveMyInterests, submitFeedback } from './actions'
 
-describe('open my account', () => {
+describe('email me a sign in link', () => {
 	beforeEach(() => {
-		vi.stubEnv('DIFFCAST_SESSION_SECRET', 's'.repeat(40))
 		state.tokens = new Map([[hashFeedToken('1'.repeat(64)), { id: 11, listenerId: 1 }]])
 		state.cookies = []
-		state.remembered = undefined
+		state.loginTokens = new Map()
+		state.mailer = new FakeMailer()
 		state.ip = '192.0.2.60'
 		feedMisses.clear()
+		signInByIp.clear()
+		signInByEmail.clear()
 	})
 
-	async function open(values: Record<string, string>): Promise<string> {
+	function tokenForm(token: string): FormData {
 		const data = new FormData()
-		for (const [key, value] of Object.entries(values)) data.set(key, value)
-		try {
-			await openMyAccount(data)
-		} catch (error) {
-			const digest = (error as { digest?: string }).digest ?? ''
-			if (digest.startsWith('NEXT_REDIRECT')) return digest.split(';')[2] ?? ''
-			throw error
-		}
-		throw new Error('openMyAccount did not redirect')
+		data.set('token', token)
+		return data
 	}
 
-	it('signs in the token listener and goes to the account', async () => {
-		expect(await open({ token: '1'.repeat(64) })).toBe('/account')
-		const session = state.cookies.find((cookie) => cookie.name === LISTENER_COOKIE)
-		expect(verifyListenerSession(session?.value, listenerSigningKey())).toBe(1)
+	it('emails a one time link to the listener address and never sets a session', async () => {
+		const result = await emailMySignInLink(IDLE, tokenForm('1'.repeat(64)))
+		expect(result).toEqual({ status: 'saved', message: SIGN_IN_SENT })
+		expect(state.mailer.sent.map((message) => message.to)).toEqual(['ana@example.com'])
+		const link = /signin\/confirm\?token=([0-9a-f]{64})/.exec(state.mailer.sent[0]?.text ?? '')?.[1]
+		expect(link).toBeTruthy()
+		expect(state.loginTokens.get(hashLoginToken(link ?? ''))).toBe(1)
+		expect(state.cookies).toEqual([])
 	})
 
-	it('honours only safe next paths, then the remembered one', async () => {
-		const authorize = '/oauth/authorize?client_id=a&state=b'
-		expect(await open({ token: '1'.repeat(64), next: authorize })).toBe(authorize)
-		expect(await open({ token: '1'.repeat(64), next: 'https://evil.example/' })).toBe('/account')
-		state.remembered = authorize
-		expect(await open({ token: '1'.repeat(64) })).toBe(authorize)
-		expect(state.remembered).toBeUndefined()
-	})
-
-	it('sets no session for a bad token', async () => {
-		expect(await open({ token: '9'.repeat(64) })).toBe('/signin?error=expired')
+	it('sends nothing for a bad token and throttles repeats per address', async () => {
+		expect((await emailMySignInLink(IDLE, tokenForm('9'.repeat(64)))).status).toBe('error')
+		for (let index = 0; index < 5; index += 1) {
+			state.ip = `192.0.2.${100 + index}`
+			expect((await emailMySignInLink(IDLE, tokenForm('1'.repeat(64)))).status).toBe('saved')
+		}
+		expect(state.mailer.sent).toHaveLength(3)
 		expect(state.cookies).toEqual([])
 	})
 })
@@ -55,7 +52,8 @@ const state = vi.hoisted(() => ({
 	days: [] as { listenerId: number; days: number[] }[],
 	ip: '192.0.2.50',
 	cookies: [] as { name: string; value: string }[],
-	remembered: undefined as string | undefined,
+	loginTokens: new Map<string, number>(),
+	mailer: null as unknown as import('@/lib/email/fake-mailer').FakeMailer,
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -65,19 +63,21 @@ vi.mock('@/lib/db', () => ({
 }))
 vi.mock('next/cache', () => ({ refresh: () => undefined }))
 vi.mock('next/headers', () => ({
-	headers: async () => new Headers({ 'x-forwarded-for': state.ip }),
+	headers: async () =>
+		new Headers({ 'x-forwarded-for': state.ip, host: 'diffcast.fm', 'x-forwarded-proto': 'https' }),
 	cookies: async () => ({
-		get: (name: string) =>
-			name === 'diffcast_return' && state.remembered
-				? { name, value: state.remembered }
-				: undefined,
+		get: () => undefined,
 		set: (name: string, value: string) => {
 			state.cookies.push({ name, value })
 		},
-		delete: (name: string) => {
-			if (name === 'diffcast_return') state.remembered = undefined
-		},
+		delete: () => undefined,
 	}),
+}))
+vi.mock('@/lib/email/resend-mailer', () => ({ currentMailer: () => state.mailer }))
+vi.mock('@/lib/store/login-tokens', () => ({
+	addLoginToken: async (listenerId: number, hash: string) => {
+		state.loginTokens.set(hash, listenerId)
+	},
 }))
 vi.mock('@/lib/store/feed-tokens', () => ({
 	findServedFeedToken: async (hash: string) => state.tokens.get(hash) ?? null,
@@ -92,6 +92,7 @@ vi.mock('@/lib/store/interests', () => ({
 	},
 }))
 vi.mock('@/lib/store/listeners', () => ({
+	getListener: async (id: number) => (id === 1 ? { id: 1, email: 'ana@example.com' } : null),
 	setListenerDays: async (listenerId: number, days: number[]) => {
 		state.days.push({ listenerId, days })
 	},

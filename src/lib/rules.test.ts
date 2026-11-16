@@ -281,6 +281,8 @@ describe('feed xml', () => {
 		expect(xml).toContain('<pubDate>Mon, 16 Nov 2026 06:00:00 GMT</pubDate>')
 		expect(xml).not.toContain('blob.vercel-storage.com')
 		expect(xml).not.toContain('<live>')
+		expect(xml.match(/<link>https:\/\/d\.fm\/<\/link>/g)).toHaveLength(2)
+		expect(xml).not.toContain('/l/')
 	})
 
 	it('gives new audio a new guid and keeps 30 items', () => {

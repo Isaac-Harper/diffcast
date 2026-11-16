@@ -20,8 +20,8 @@ async function Notice({
 	if (next?.startsWith('/oauth/authorize')) {
 		return (
 			<p role="status" className="card mb-6 text-sm text-pretty">
-				Sign in to connect your agent. Without email, open your listener page (the link in any
-				episode&apos;s show notes) and press Open my account; you will come straight back here.
+				Sign in to connect your agent. We email you a link; open it in this browser and you come
+				straight back to finish connecting.
 			</p>
 		)
 	}
@@ -36,6 +36,13 @@ async function Notice({
 		return (
 			<p role="alert" className="card mb-6 border-warn-line bg-warn-soft text-sm">
 				Too many attempts from this network. Wait ten minutes and try again.
+			</p>
+		)
+	}
+	if (query['signed_out'] === 'everywhere') {
+		return (
+			<p role="status" className="mb-6 text-sm text-muted">
+				Signed out everywhere. Every browser needs a new sign in link.
 			</p>
 		)
 	}

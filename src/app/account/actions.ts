@@ -9,7 +9,7 @@ import type { FormResult } from '@/lib/form-result'
 import { parseDaysForm, parseProfileForm, wholeId } from '@/lib/forms'
 import { requestOrigin } from '@/lib/http'
 import { parseInterestsEditor } from '@/lib/interests-form'
-import { requireListener } from '@/lib/listener-auth'
+import { endAllSessions, endOtherSessions, requireListener } from '@/lib/listener-auth'
 import { addFeedToken, revokeListenerFeedTokens } from '@/lib/store/feed-tokens'
 import { saveInterests } from '@/lib/store/interests'
 import { revokeListenerGrant } from '@/lib/store/oauth'
@@ -51,6 +51,11 @@ export async function saveAccountProfile(
 	return { status: 'saved', message: 'Saved.' }
 }
 
+export async function signOutEverywhere(): Promise<void> {
+	await endAllSessions(await requireListener())
+	redirect('/signin?signed_out=everywhere')
+}
+
 export async function disconnectAgent(form: FormData): Promise<void> {
 	const listenerId = await requireListener()
 	const grantId = wholeId(form.get('grantId'))
@@ -80,7 +85,10 @@ export async function issueAccountFeedLink(
 ): Promise<FeedLinkResult> {
 	const listenerId = await requireListener()
 	const revoke = form.get('revokeOld') === 'on'
-	if (revoke) await revokeListenerFeedTokens(listenerId)
+	if (revoke) {
+		await revokeListenerFeedTokens(listenerId)
+		await endOtherSessions(listenerId)
+	}
 	const token = newFeedToken()
 	await addFeedToken(listenerId, 'Account', hashFeedToken(token))
 	const origin = requestOrigin(await headers())

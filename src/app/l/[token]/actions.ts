@@ -1,10 +1,12 @@
 'use server'
 
 import { refresh } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { feedAccess } from '@/lib/feed-access'
-import { returnPathAfterSignIn, startListenerSession } from '@/lib/listener-auth'
 import type { MissStatus } from '@/lib/feed-access'
+import { requestOrigin } from '@/lib/http'
+import { SIGN_IN_SENT, signInByIp } from '@/lib/signin'
+import { claimSignInEmail, sendSignInLink } from '@/lib/signin-link'
 import { parseInterestsEditor } from '@/lib/interests-form'
 import { parseDaysForm, parseFeedbackForm, text, wholeId } from '@/lib/forms'
 import type { FormResult } from '@/lib/form-result'
@@ -12,7 +14,7 @@ import { clientIp } from '@/lib/login-throttle'
 import { listenerOwnsEpisode } from '@/lib/store/episodes'
 import { addFeedback } from '@/lib/store/feedback'
 import { saveInterests } from '@/lib/store/interests'
-import { setListenerDays } from '@/lib/store/listeners'
+import { getListener, setListenerDays } from '@/lib/store/listeners'
 
 function denied(status: MissStatus): FormResult {
 	return {
@@ -46,13 +48,26 @@ export async function saveMyInterests(_previous: FormResult, form: FormData): Pr
 	return { status: 'saved', message: 'Interests saved. They shape your next episode.' }
 }
 
-export async function openMyAccount(form: FormData): Promise<void> {
-	const access = await feedAccess(await clientIp(), text(form, 'token', 64))
-	if (typeof access === 'number') {
-		redirect(access === 429 ? '/signin?error=throttled' : '/signin?error=expired')
+export async function emailMySignInLink(
+	_previous: FormResult,
+	form: FormData
+): Promise<FormResult> {
+	const ip = await clientIp()
+	const access = await feedAccess(ip, text(form, 'token', 64))
+	if (typeof access === 'number') return denied(access)
+	if (signInByIp.blocked(ip)) {
+		return { status: 'error', message: 'Too many attempts. Try again in ten minutes.' }
 	}
-	await startListenerSession(access.listenerId)
-	redirect(await returnPathAfterSignIn(form.get('next')))
+	signInByIp.add(ip)
+	const listener = await getListener(access.listenerId)
+	if (listener?.email && claimSignInEmail(listener.email)) {
+		await sendSignInLink(
+			{ id: listener.id, email: listener.email },
+			requestOrigin(await headers()),
+			null
+		)
+	}
+	return { status: 'saved', message: SIGN_IN_SENT }
 }
 
 export async function saveMyDays(_previous: FormResult, form: FormData): Promise<FormResult> {

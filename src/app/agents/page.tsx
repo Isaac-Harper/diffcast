@@ -55,8 +55,8 @@ export default function AgentsPage() {
 					<p className="leading-7 text-pretty">
 						You need an active subscription. Add the server to your agent, and the first time it
 						connects your browser opens Diffcast to ask you to allow it. If you are not signed in,
-						open your listener page (the link in any episode&apos;s show notes), press Open my
-						account, and you come straight back.
+						Diffcast emails you a sign in link; open it in the same browser and you come straight
+						back to finish.
 					</p>
 					<div className="rounded-card border border-line bg-surface p-6">
 						<AgentSetup origin={SITE_URL} />

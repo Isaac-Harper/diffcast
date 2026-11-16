@@ -19,8 +19,17 @@ function hmac(payload: string, key: string): string {
 	return createHmac('sha256', key).update(payload).digest('base64url')
 }
 
-export function signListenerSession(listenerId: number, key: string, now: number = Date.now()) {
-	const payload = `${listenerId}.${now + LISTENER_SESSION_MAX_AGE * 1000}`
+export interface ListenerSession {
+	listenerId: number
+	epoch: number
+}
+
+export function signListenerSession(
+	session: ListenerSession,
+	key: string,
+	now: number = Date.now()
+): string {
+	const payload = `${session.listenerId}.${session.epoch}.${now + LISTENER_SESSION_MAX_AGE * 1000}`
 	return `${payload}.${hmac(payload, key)}`
 }
 
@@ -28,16 +37,16 @@ export function verifyListenerSession(
 	token: string | undefined,
 	key: string,
 	now: number = Date.now()
-): number | null {
+): ListenerSession | null {
 	if (!token) return null
 	const parts = token.split('.')
-	if (parts.length !== 3) return null
-	const [id, expires, signature] = parts as [string, string, string]
-	if (!/^\d{1,9}$/.test(id) || !/^\d{1,15}$/.test(expires)) return null
-	if (!safeEqual(signature, hmac(`${id}.${expires}`, key))) return null
+	if (parts.length !== 4) return null
+	const [id, epoch, expires, signature] = parts as [string, string, string, string]
+	if (!/^\d{1,9}$/.test(id) || !/^\d{1,9}$/.test(epoch) || !/^\d{1,15}$/.test(expires)) return null
+	if (!safeEqual(signature, hmac(`${id}.${epoch}.${expires}`, key))) return null
 	if (Number(expires) <= now) return null
 	const listenerId = Number(id)
-	return listenerId > 0 ? listenerId : null
+	return listenerId > 0 ? { listenerId, epoch: Number(epoch) } : null
 }
 
 export function newLoginToken(): string {

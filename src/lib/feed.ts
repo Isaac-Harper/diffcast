@@ -62,7 +62,7 @@ export function buildFeed(
 ): string {
 	const title = xmlEscape(`Diffcast for ${listener.name}`)
 	const image = xmlEscape(`${origin}/cover.png`)
-	const link = xmlEscape(`${origin}/l/${token}`)
+	const link = xmlEscape(`${origin}/`)
 	const items = episodes
 		.slice(0, FEED_EPISODES)
 		.map((episode) => feedItem(origin, token, listener.timezone, episode))

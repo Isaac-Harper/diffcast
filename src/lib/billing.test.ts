@@ -57,15 +57,18 @@ describe('served rule', () => {
 describe('listener sessions', () => {
 	const key = listenerSigningKey({ DIFFCAST_SESSION_SECRET: 's'.repeat(40) })
 
-	it('round trips the listener id until it expires', () => {
-		const token = signListenerSession(42, key, 1_000)
-		expect(verifyListenerSession(token, key, 2_000)).toBe(42)
+	it('round trips the listener id and epoch until it expires', () => {
+		const token = signListenerSession({ listenerId: 42, epoch: 3 }, key, 1_000)
+		expect(verifyListenerSession(token, key, 2_000)).toEqual({ listenerId: 42, epoch: 3 })
 		expect(verifyListenerSession(token, key, 1_000 + 31 * 24 * 3600 * 1000)).toBeNull()
 	})
 
-	it('rejects tampering, other keys and the admin cookie', () => {
-		const token = signListenerSession(42, key, 1_000)
+	it('rejects tampering, other keys, old formats and the admin cookie', () => {
+		const token = signListenerSession({ listenerId: 42, epoch: 0 }, key, 1_000)
 		expect(verifyListenerSession(token.replace(/^42/, '43'), key, 2_000)).toBeNull()
+		expect(verifyListenerSession(token.replace(/^42\.0/, '42.1'), key, 2_000)).toBeNull()
+		const [id, , expires, signature] = token.split('.')
+		expect(verifyListenerSession(`${id}.${expires}.${signature}`, key, 2_000)).toBeNull()
 		expect(verifyListenerSession(token, `${key}x`, 2_000)).toBeNull()
 		const admin = signSession(signingKey('s'.repeat(40), 'pw'), 1_000)
 		expect(verifyListenerSession(admin, key, 2_000)).toBeNull()

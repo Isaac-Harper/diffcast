@@ -15,6 +15,7 @@ import {
 	openBillingPortal,
 	saveAccountDays,
 	saveAccountInterests,
+	signOutEverywhere,
 } from './actions'
 import { NewFeedLink, ProfileForm } from './forms'
 
@@ -139,14 +140,28 @@ export function AccountView({
 				</h2>
 				<p className="text-sm text-pretty text-muted">
 					Lost your feed link, or shared it by mistake? Get a new one. Revoking the old links stops
-					them working in every app that uses them.
+					them working in every app that uses them, and signs out every other browser.
 				</p>
 				<NewFeedLink />
 			</section>
 
-			<form action={signOut}>
-				<SubmitButton variant="quiet">Sign out</SubmitButton>
-			</form>
+			<section className="card space-y-3" aria-labelledby="sessions-heading">
+				<h2 id="sessions-heading" className="text-lg font-semibold">
+					Sign in
+				</h2>
+				<p className="text-sm text-pretty text-muted">
+					Signed in somewhere you should not be? Sign out everywhere ends every browser session,
+					this one included. Connected agents stay connected; disconnect them above.
+				</p>
+				<div className="flex flex-wrap gap-3">
+					<form action={signOutEverywhere}>
+						<SubmitButton variant="destructive">Sign out everywhere</SubmitButton>
+					</form>
+					<form action={signOut}>
+						<SubmitButton variant="quiet">Sign out</SubmitButton>
+					</form>
+				</div>
+			</section>
 		</div>
 	)
 }

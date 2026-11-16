@@ -8,7 +8,7 @@ import {
 } from '@/lib/listener-session'
 import { signInByEmail, signInByIp, SIGN_IN_SENT } from '@/lib/signin'
 import { signupAttempts } from '@/lib/signup'
-import { issueAccountFeedLink, saveAccountDays } from './account/actions'
+import { issueAccountFeedLink, saveAccountDays, signOutEverywhere } from './account/actions'
 import { confirmSignIn, requestSignIn } from './signin/actions'
 import { startCheckout } from './start/actions'
 
@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
 	days: [] as { listenerId: number; days: number[] }[],
 	tokens: [] as { listenerId: number; label: string }[],
 	revoked: [] as number[],
+	epochs: new Map<number, number>(),
 	mailer: null as unknown as FakeMailer,
 }))
 
@@ -42,8 +43,11 @@ vi.mock('next/headers', () => ({
 			name === LISTENER_COOKIE && state.cookie ? { name, value: state.cookie } : undefined,
 		set: (name: string, value: string) => {
 			state.setCookies.push({ name, value })
+			if (name === LISTENER_COOKIE) state.cookie = value
 		},
-		delete: () => undefined,
+		delete: (name: string) => {
+			if (name === LISTENER_COOKIE) state.cookie = undefined
+		},
 	}),
 }))
 vi.mock('@/lib/email/resend-mailer', () => ({ currentMailer: () => state.mailer }))
@@ -65,6 +69,12 @@ vi.mock('@/lib/store/listeners', () => ({
 	findServedListenerByEmail: async (email: string) => state.served.get(email.toLowerCase()) ?? null,
 	setListenerDays: async (listenerId: number, days: number[]) => {
 		state.days.push({ listenerId, days })
+	},
+	sessionEpoch: async (listenerId: number) => state.epochs.get(listenerId) ?? null,
+	bumpSessionEpoch: async (listenerId: number) => {
+		const next = (state.epochs.get(listenerId) ?? 0) + 1
+		state.epochs.set(listenerId, next)
+		return next
 	},
 }))
 vi.mock('@/lib/store/billing', () => ({
@@ -117,6 +127,7 @@ beforeEach(() => {
 	state.days = []
 	state.tokens = []
 	state.revoked = []
+	state.epochs = new Map([[5, 2]])
 	state.mailer = new FakeMailer()
 	signupAttempts.clear()
 	signInByIp.clear()
@@ -212,7 +223,7 @@ describe('account actions', () => {
 		await expect(saveAccountDays(IDLE, form({ days: ['1'] }))).rejects.toMatchObject({
 			digest: expect.stringMatching(/\/signin/),
 		})
-		state.cookie = signListenerSession(5, listenerSigningKey())
+		state.cookie = session()
 		expect(await saveAccountDays(IDLE, form({ days: ['3', '1'], listenerId: '9' }))).toEqual({
 			status: 'saved',
 			message: 'Days saved.',
@@ -220,10 +231,20 @@ describe('account actions', () => {
 		expect(state.days).toEqual([{ listenerId: 5, days: [1, 3] }])
 	})
 
-	it('issues a new feed link and revokes the old ones only when asked', async () => {
-		state.cookie = signListenerSession(5, listenerSigningKey())
+	it('refuses a session from an older epoch', async () => {
+		state.cookie = signListenerSession({ listenerId: 5, epoch: 1 }, listenerSigningKey())
+		await expect(saveAccountDays(IDLE, form({ days: ['1'] }))).rejects.toMatchObject({
+			digest: expect.stringMatching(/\/signin/),
+		})
+		expect(state.days).toEqual([])
+	})
+
+	it('issues a new feed link and revokes the old ones only when asked, ending other sessions', async () => {
+		state.cookie = session()
 		const kept = await issueAccountFeedLink({ status: 'idle' }, form({}))
 		expect(kept).toMatchObject({ status: 'issued', revoked: false })
+		expect(state.epochs.get(5)).toBe(2)
+		const otherBrowser = session()
 		const revoked = await issueAccountFeedLink({ status: 'idle' }, form({ revokeOld: 'on' }))
 		expect(revoked).toMatchObject({
 			status: 'issued',
@@ -235,5 +256,33 @@ describe('account actions', () => {
 			{ listenerId: 5, label: 'Account' },
 			{ listenerId: 5, label: 'Account' },
 		])
+		expect(state.epochs.get(5)).toBe(3)
+		expect(state.cookie).not.toBe(otherBrowser)
+		expect((await saveAccountDays(IDLE, form({ days: ['2'] }))).status).toBe('saved')
+		state.cookie = otherBrowser
+		await expect(saveAccountDays(IDLE, form({ days: ['4'] }))).rejects.toMatchObject({
+			digest: expect.stringMatching(/\/signin/),
+		})
+	})
+
+	it('signs out everywhere, this browser included', async () => {
+		state.cookie = session()
+		const otherBrowser = session()
+		await expect(signOutEverywhere()).rejects.toMatchObject({
+			digest: expect.stringMatching(/\/signin\?signed_out=everywhere/),
+		})
+		expect(state.epochs.get(5)).toBe(3)
+		expect(state.cookie).toBeUndefined()
+		state.cookie = otherBrowser
+		await expect(saveAccountDays(IDLE, form({ days: ['4'] }))).rejects.toMatchObject({
+			digest: expect.stringMatching(/\/signin/),
+		})
 	})
 })
+
+function session(): string {
+	return signListenerSession(
+		{ listenerId: 5, epoch: state.epochs.get(5) ?? 0 },
+		listenerSigningKey()
+	)
+}
