@@ -12,9 +12,12 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@neondatabase/serverless": "^1.2.1",
+		"@vercel/blob": "^2.9.0",
 		"next": "16.4.6",
 		"react": "19.3.0",
-		"react-dom": "19.3.0"
+		"react-dom": "19.3.0",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@monogram/prettier-config": "^0.4.0",
