@@ -30,6 +30,8 @@ function episode(overrides: Partial<FeedEpisode> = {}): FeedEpisode {
 			{
 				heading: 'Next.js 16.5',
 				kind: 'news',
+				challenges: null,
+				topics: ['Developer tools and web development'],
 				packages: ['next'],
 				sources: [{ title: 'Release notes', url: 'https://github.com/vercel/next.js?a=1&b=2' }],
 			},
