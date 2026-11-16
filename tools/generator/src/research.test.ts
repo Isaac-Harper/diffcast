@@ -35,6 +35,7 @@ describe('research limits', () => {
 			interests: [],
 			recent: [],
 			feedback: [],
+			workContext: [],
 		}
 		const input = buildResearchInput(listener, WEEK_AHEAD)
 		expect(input.split('\n')[0]).toBe(

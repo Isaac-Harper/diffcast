@@ -1,6 +1,7 @@
 import type { DueListener } from '../../../shared/contract.ts'
 import type { SavedResearchNotes } from './research-notes.ts'
 import { showMinutes, wordRange } from './script-rules.ts'
+import { briefWorkContext, episodeStack } from './work-context.ts'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -89,6 +90,18 @@ function interestLines(listener: DueListener): string[] {
 	]
 }
 
+function workContextLines(listener: DueListener): string[] {
+	if (listener.workContext.length === 0) return []
+	const topics = [...new Set(listener.workContext.flatMap((context) => context.topics))]
+	return [
+		`Work context: the listener's coding agent reported ${listener.workContext.length} private project(s) they are working on now. This is the strongest signal of what matters this week: favor stories about these packages and topics, and their packages are already merged into the stack.`,
+		topics.length
+			? `Work context topics: ${topics.join('; ')}.`
+			: 'The work context lists no topics.',
+		'The projects are private and labeled "private project N". Never search for, say or write a project name or a work context summary.',
+	]
+}
+
 export function buildBrief(listener: DueListener): string {
 	const full = wordRange(listener.minutes, 3, listener.format)
 	const half = wordRange(listener.minutes, 1, listener.format)
@@ -96,7 +109,8 @@ export function buildBrief(listener: DueListener): string {
 	const minutes = showMinutes(listener.minutes, listener.format)
 	const listenerData = {
 		interests: listener.interests,
-		stack: listener.stack,
+		workContext: briefWorkContext(listener.workContext),
+		stack: episodeStack(listener),
 		focus: listener.focus,
 		recent: listener.recent,
 		feedback: listener.feedback,
@@ -106,6 +120,7 @@ export function buildBrief(listener: DueListener): string {
 		...windowLines(listener),
 		'',
 		...interestLines(listener),
+		...workContextLines(listener),
 		'',
 		listener.format === 'week_ahead'
 			? `Length for this listener (the short week ahead, about ${minutes} minutes), counted over all turns:`

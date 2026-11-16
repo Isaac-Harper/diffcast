@@ -11,6 +11,7 @@ import type { Gateway } from './research.ts'
 import { normalizeUrl } from './research-notes.ts'
 import type { SavedResearchNotes } from './research-notes.ts'
 import { checkScript } from './script-rules.ts'
+import { privateProjectNames } from './work-context.ts'
 import type { ScriptCheck } from './script-rules.ts'
 import { StepFailure } from './steps.ts'
 
@@ -67,12 +68,17 @@ export function uncitedSources(episode: EpisodeScript, notes: SavedResearchNotes
 
 export function checkReply(
 	reply: string,
-	listener: Pick<DueListener, 'minutes' | 'format'>,
+	listener: Pick<DueListener, 'minutes' | 'format' | 'workContext'>,
 	notes: SavedResearchNotes
 ): ScriptCheck {
 	let check: ScriptCheck
 	try {
-		check = checkScript(extractEpisodeJson(reply), listener.minutes, listener.format)
+		check = checkScript(
+			extractEpisodeJson(reply),
+			listener.minutes,
+			listener.format,
+			privateProjectNames(listener.workContext)
+		)
 	} catch (error) {
 		return { ok: false, problems: [error instanceof Error ? error.message : String(error)] }
 	}

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { savedResearchNotesSchema } from './research-notes.ts'
 import type { Researcher } from './research.ts'
 import { checkScript } from './script-rules.ts'
+import { privateProjectNames } from './work-context.ts'
 import type { EpisodeWriter } from './writer.ts'
 
 const FIXTURE_MINUTES = 3
@@ -31,7 +32,12 @@ export function createFixtureWriter(episodePath: string): EpisodeWriter {
 		async write(listener, _notes, recordReply) {
 			const reply = await readFile(episodePath, 'utf8')
 			await recordReply(1, reply)
-			const check = checkScript(JSON.parse(reply), FIXTURE_MINUTES, listener.format)
+			const check = checkScript(
+				JSON.parse(reply),
+				FIXTURE_MINUTES,
+				listener.format,
+				privateProjectNames(listener.workContext)
+			)
 			if (!check.ok) throw new Error(`fixture episode invalid: ${check.problems.join('; ')}`)
 			return {
 				episode: check.episode,

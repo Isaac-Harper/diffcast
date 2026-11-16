@@ -1,5 +1,6 @@
 import { episodeScriptSchema, WORDS_PER_MINUTE } from '../../../shared/contract.ts'
 import type { EpisodeFormat, EpisodeScript } from '../../../shared/contract.ts'
+import { scriptPrivacyProblems } from './work-context.ts'
 
 export const MAX_TURN_WORDS = 180
 export const QUIET_DAY_SECONDS = 90
@@ -34,7 +35,12 @@ export function removeDashes(text: string): string {
 		.trim()
 }
 
-export function checkScript(raw: unknown, minutes: number, format: EpisodeFormat): ScriptCheck {
+export function checkScript(
+	raw: unknown,
+	minutes: number,
+	format: EpisodeFormat,
+	privateNames: readonly string[] = []
+): ScriptCheck {
 	const parsed = episodeScriptSchema.safeParse(raw)
 	if (!parsed.success) {
 		return {
@@ -60,6 +66,8 @@ export function checkScript(raw: unknown, minutes: number, format: EpisodeFormat
 			`total is ${words} words; with storyCount ${parsed.data.storyCount} it must be between ${range.min} and ${range.max}`
 		)
 	}
+	const episode = { ...parsed.data, turns }
+	problems.push(...scriptPrivacyProblems(episode, privateNames))
 	if (problems.length) return { ok: false, problems }
-	return { ok: true, episode: { ...parsed.data, turns } }
+	return { ok: true, episode }
 }

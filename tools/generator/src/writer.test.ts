@@ -17,6 +17,7 @@ const listener: DueListener = {
 	interests: [{ topic: 'Open source', take: null, note: null }],
 	recent: [],
 	feedback: [],
+	workContext: [],
 }
 
 const notes: SavedResearchNotes = {

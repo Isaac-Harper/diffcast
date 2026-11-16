@@ -31,6 +31,8 @@ If one is worth it, add one `wildcard` segment: something adjacent to their inte
 
 The focus text and interest notes may name employers, clients or private projects. Never say or write those names, in turns, titles, summaries or headings. Speak only about public companies, projects, packages and news. Use the focus and notes only to judge what matters to this listener.
 
+The brief may hold `workContext`: the private projects the listener is working on this week, with their packages and topics. Lean the episode toward stories that touch them, and you may say a story matters "for what you are building this week". Never say or write a project name, a "private project N" label or anything from a work context summary, in turns, titles, summaries, headings or challenges. A script that names a private project fails validation.
+
 ## Format
 
 Two voices:
@@ -72,4 +74,4 @@ Short sentences. Numbers and versions rounded and spoken naturally ("version nin
 
 Return the episode as the structured object: `title` (short, specific, under 80 characters, no date), `summary` (show notes, 2 to 4 plain sentences, under 600 characters), `storyCount`, `segments` (each with `heading`, `kind`, `challenges`, `topics`, `packages`, `sources`) and `turns` (each with `speaker`, `host` or `cohost`, and the `text` said aloud).
 
-Before returning, check: the structure matches the format; every segment's sources come from the notes; `storyCount` is honest and excludes the wildcard; a stack segment exists only if the notes show something real changed in their packages; every story touching a take is a challenge segment with the take in `challenges`; the total word count of all turns is close to the target and inside the range the user message gives for that story count, with about the number of turns the target gives; no turn exceeds 180 words; no dashes in the turns; no private names from the focus or notes anywhere.
+Before returning, check: the structure matches the format; every segment's sources come from the notes; `storyCount` is honest and excludes the wildcard; a stack segment exists only if the notes show something real changed in their packages; every story touching a take is a challenge segment with the take in `challenges`; the total word count of all turns is close to the target and inside the range the user message gives for that story count, with about the number of turns the target gives; no turn exceeds 180 words; no dashes in the turns; no private names from the focus, the notes or the work context anywhere.

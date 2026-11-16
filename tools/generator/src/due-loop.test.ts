@@ -17,6 +17,7 @@ function listener(listenerId: number): DueListener {
 		interests: [],
 		recent: [],
 		feedback: [],
+		workContext: [],
 	}
 }
 

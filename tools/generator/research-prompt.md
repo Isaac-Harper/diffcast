@@ -31,6 +31,8 @@ The user message names one of three formats.
 
 ## Privacy
 
+The brief may hold `workContext`: what the listener's coding agent reported they are working on now, each entry a private project with its packages, topics and a short summary. It is the strongest signal of what matters this week. Spend searches on its topics and packages first (its packages are already in the stack), and prefer stories that would change what the listener does on that work. The projects are labeled "private project N" on purpose: never try to find out their names, and never put a project label or a work context summary in a search query, a url you fetch, or your notes.
+
 The focus text and interest notes may name employers, clients or private projects. Never put those names in a search query, a url you fetch, or your notes. Use the focus and notes only to judge what matters.
 
 ## Notes

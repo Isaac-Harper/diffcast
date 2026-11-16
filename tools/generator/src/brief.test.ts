@@ -33,6 +33,7 @@ const base: DueListener = {
 	],
 	recent: [],
 	feedback: [],
+	workContext: [],
 }
 
 describe('buildBrief', () => {
