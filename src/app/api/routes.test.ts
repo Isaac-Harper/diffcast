@@ -127,6 +127,25 @@ vi.mock('@/lib/store/episodes', () => ({
 		return { id: 9, replaced: state.oldAudioUrl !== null, oldAudioUrl: state.oldAudioUrl }
 	},
 }))
+vi.mock('@/lib/store/work-context', () => ({
+	activeWorkContext: async (listenerIds: number[]) =>
+		new Map(
+			listenerIds.map((id) => [
+				id,
+				id === 1
+					? [
+							{
+								project: 'acme/api',
+								packages: ['npm:hono'],
+								topics: ['Edge caching'],
+								summary: 'Moving to edge functions',
+								updatedAt: '2026-11-15T10:00:00Z',
+							},
+						]
+					: [],
+			])
+		),
+}))
 vi.mock('@/lib/store/runs', () => ({
 	recordRunOk: async (...args: unknown[]) => {
 		state.runs.push(['ok', ...args])
@@ -371,6 +390,15 @@ describe('job api bodies', () => {
 					},
 				],
 				feedback: [{ date: '2026-11-13', note: 'More Rust' }],
+				workContext: [
+					{
+						project: 'acme/api',
+						packages: ['npm:hono'],
+						topics: ['Edge caching'],
+						summary: 'Moving to edge functions',
+						updatedAt: '2026-11-15T10:00:00Z',
+					},
+				],
 			},
 		])
 		const tokyo = await due(request('/api/jobs/due?now=2026-11-16T19:00:00Z', { auth: bearer }))

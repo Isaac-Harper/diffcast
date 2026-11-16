@@ -8,6 +8,7 @@ import {
 	recentFeedbackNotes,
 } from './store/episodes'
 import { listServedListeners } from './store/listeners'
+import { activeWorkContext } from './store/work-context'
 
 export const RECENT_EPISODES = 15
 export const RECENT_FEEDBACK = 10
@@ -20,14 +21,18 @@ export async function dueListeners(now: Date): Promise<DueListener[]> {
 	)
 	const due = candidates.filter(({ listener, date }) => !existing.has(`${listener.id}:${date}`))
 	const pairs = due.map(({ listener, date }) => ({ listenerId: listener.id, date }))
-	const [interests, lastDates] = await Promise.all([
-		activeInterests(due.map(({ listener }) => listener.id)),
+	const ids = due.map(({ listener }) => listener.id)
+	const [interests, lastDates, contexts] = await Promise.all([
+		activeInterests(ids),
 		lastEpisodeDates(pairs),
+		activeWorkContext(ids),
 	])
 	return Promise.all(
 		due.map(async ({ listener, date, format }) => {
 			const listenerInterests = interests.get(listener.id)
 			if (!listenerInterests) throw new Error(`No interests entry for listener ${listener.id}`)
+			const workContext = contexts.get(listener.id)
+			if (!workContext) throw new Error(`No work context entry for listener ${listener.id}`)
 			return {
 				listenerId: listener.id,
 				date,
@@ -40,6 +45,7 @@ export async function dueListeners(now: Date): Promise<DueListener[]> {
 				interests: listenerInterests,
 				recent: await recentEpisodes(listener.id, RECENT_EPISODES),
 				feedback: await recentFeedbackNotes(listener.id, RECENT_FEEDBACK),
+				workContext,
 			}
 		})
 	)

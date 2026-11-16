@@ -82,6 +82,14 @@ export const interestSchema = z.object({
 	note: z.string().trim().max(500).nullable(),
 })
 
+export const workContextSchema = z.object({
+	project: z.string().min(1).max(80),
+	packages: z.array(z.string().min(1).max(214)).max(200),
+	topics: z.array(z.string().min(1).max(100)).max(20),
+	summary: z.string().max(300),
+	updatedAt: z.string(),
+})
+
 export const dueListenerSchema = z.object({
 	listenerId: z.number().int().positive(),
 	date: day,
@@ -94,6 +102,7 @@ export const dueListenerSchema = z.object({
 	interests: z.array(interestSchema).max(40),
 	recent: z.array(recentEpisodeSchema).max(15),
 	feedback: z.array(z.object({ date: day, note: z.string() })).max(10),
+	workContext: z.array(workContextSchema).max(10).default([]),
 })
 
 export const dueResponseSchema = z.object({ listeners: z.array(dueListenerSchema) })
@@ -123,6 +132,7 @@ export const failureRequestSchema = z.object({
 
 export type Dependency = z.infer<typeof dependencySchema>
 export type Interest = z.infer<typeof interestSchema>
+export type WorkContext = z.infer<typeof workContextSchema>
 export type Segment = z.infer<typeof segmentSchema>
 export type Turn = z.infer<typeof turnSchema>
 export type EpisodeScript = z.infer<typeof episodeScriptSchema>
