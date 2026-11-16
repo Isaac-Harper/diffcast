@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { parseRunOptions } from './arguments.ts'
 import { workDirectoryFrom } from './config.ts'
-import { runListeners } from './due-loop.ts'
+import { concurrencyFrom, runListeners } from './due-loop.ts'
 import { acquireLock, releaseLock } from './lock.ts'
 import { log } from './log.ts'
 import { produceEpisode } from './pipeline.ts'
@@ -33,7 +33,8 @@ async function main(): Promise<void> {
 					fromStep: options.fromStep ?? 'research',
 					stopAfterMix: options.dryRun || options.noUpload,
 				}),
-			services.jobs
+			services.jobs,
+			concurrencyFrom(process.env)
 		)
 		await pruneWorkDirectory(workDirectory, Date.now()).catch((error: unknown) =>
 			log(`warning: prune failed: ${error instanceof Error ? error.message : String(error)}`)
