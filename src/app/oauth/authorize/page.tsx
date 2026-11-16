@@ -9,6 +9,7 @@ import { sessionListenerId } from '@/lib/listener-auth'
 import { consentState } from '@/lib/oauth/consent'
 import { withQuery } from '@/lib/oauth/redirect-uris'
 import { searchParamsFrom } from '@/lib/return-path'
+import { forwardedIp } from '@/lib/throttle'
 import { decideAuthorization } from './actions'
 import { ConsentView } from './consent-view'
 
@@ -39,8 +40,14 @@ async function Consent({
 	searchParams: PageProps<'/oauth/authorize'>['searchParams']
 }) {
 	const params = searchParamsFrom(await searchParams)
-	const origin = requestOrigin(await headers())
-	const state = await consentState(params, origin, await sessionListenerId())
+	const headerList = await headers()
+	const origin = requestOrigin(headerList)
+	const state = await consentState(
+		params,
+		origin,
+		await sessionListenerId(),
+		forwardedIp(headerList.get('x-forwarded-for'))
+	)
 	if (state.kind === 'show_error') return <Problem message={state.message} />
 	if (state.kind === 'redirect_error') {
 		redirect(

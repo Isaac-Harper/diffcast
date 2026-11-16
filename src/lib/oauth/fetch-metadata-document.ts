@@ -1,11 +1,12 @@
 import { lookup as dnsLookup } from 'node:dns'
 import type { LookupAddress } from 'node:dns'
-import { request } from 'node:https'
+import type { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { BlockList, isIP } from 'node:net'
 import type { LookupFunction } from 'node:net'
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024
-export const FETCH_TIMEOUT_MS = 5000
+export const FETCH_DEADLINE_MS = 5000
 
 const blocked = new BlockList()
 for (const [network, prefix] of [
@@ -42,23 +43,25 @@ for (const [network, prefix] of [
 	blocked.addSubnet(network, prefix, 'ipv6')
 }
 
+const globalUnicast = new BlockList()
+globalUnicast.addSubnet('2000::', 3, 'ipv6')
+
 // BlockList also matches IPv4 lookups against IPv6 rules, so ::ffff:0:0/96 cannot be a rule.
 const MAPPED_IPV4 = /^::ffff:(?:0:)?(\d{1,3}(?:\.\d{1,3}){3})$/i
 
 export function isPublicAddress(address: string): boolean {
 	const family = isIP(address)
 	if (family === 0) return false
-	if (family === 6) {
-		const mapped = MAPPED_IPV4.exec(address)?.[1]
-		if (mapped !== undefined) return isPublicAddress(mapped)
-		if (/^::ffff:/i.test(address)) return false
-	}
-	return !blocked.check(address, family === 4 ? 'ipv4' : 'ipv6')
+	if (family === 4) return !blocked.check(address, 'ipv4')
+	const mapped = MAPPED_IPV4.exec(address)?.[1]
+	if (mapped !== undefined) return isPublicAddress(mapped)
+	if (/^::ffff:/i.test(address)) return false
+	return !blocked.check(address, 'ipv6') && globalUnicast.check(address, 'ipv6')
 }
 
 export class MetadataFetchError extends Error {}
 
-const guardedLookup: LookupFunction = (hostname, options, callback) => {
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
 	dnsLookup(hostname, { ...options, all: true }, (error, addresses) => {
 		if (error) {
 			callback(error, '', 0)
@@ -84,24 +87,47 @@ export interface FetchedDocument {
 	cacheControl: string | null
 }
 
-export function fetchMetadataDocument(clientId: string): Promise<FetchedDocument> {
-	const url = new URL(clientId)
-	if (isIP(url.hostname.replace(/^\[|\]$/g, '')) !== 0) {
-		return Promise.reject(new MetadataFetchError('Client id urls must use a host name'))
-	}
+export interface Transport {
+	request: (
+		url: URL,
+		options: RequestOptions,
+		onResponse: (response: IncomingMessage) => void
+	) => ClientRequest
+	lookup: LookupFunction
+	deadlineMs: number
+}
+
+const HTTPS: Transport = {
+	request: httpsRequest,
+	lookup: guardedLookup,
+	deadlineMs: FETCH_DEADLINE_MS,
+}
+
+export function readDocument(url: URL, transport: Transport): Promise<FetchedDocument> {
 	return new Promise((resolve, reject) => {
-		const outgoing = request(
+		let settled = false
+		const finish = (outcome: () => void) => {
+			if (settled) return
+			settled = true
+			clearTimeout(deadline)
+			outcome()
+		}
+		const fail = (error: unknown) =>
+			finish(() =>
+				reject(
+					error instanceof MetadataFetchError
+						? error
+						: new MetadataFetchError(error instanceof Error ? error.message : String(error))
+				)
+			)
+		const outgoing = transport.request(
 			url,
-			{
-				method: 'GET',
-				lookup: guardedLookup,
-				headers: { accept: 'application/json' },
-				timeout: FETCH_TIMEOUT_MS,
-			},
+			{ method: 'GET', lookup: transport.lookup, headers: { accept: 'application/json' } },
 			(response) => {
 				if (response.statusCode !== 200) {
 					response.resume()
-					reject(new MetadataFetchError(`Metadata document answered ${response.statusCode}`))
+					outgoing.destroy()
+					fail(new MetadataFetchError(`Metadata document answered ${response.statusCode}`))
 					return
 				}
 				const chunks: Buffer[] = []
@@ -109,31 +135,42 @@ export function fetchMetadataDocument(clientId: string): Promise<FetchedDocument
 				response.on('data', (chunk: Buffer) => {
 					size += chunk.length
 					if (size > MAX_DOCUMENT_BYTES) {
-						outgoing.destroy(new MetadataFetchError('Metadata document is too large'))
+						outgoing.destroy()
+						fail(new MetadataFetchError('Metadata document is too large'))
 						return
 					}
 					chunks.push(chunk)
 				})
 				response.on('end', () => {
+					let body: unknown
 					try {
-						const header = response.headers['cache-control']
-						resolve({
-							body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown,
-							cacheControl: typeof header === 'string' ? header : null,
-						})
+						body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
 					} catch {
-						reject(new MetadataFetchError('Metadata document is not JSON'))
+						fail(new MetadataFetchError('Metadata document is not JSON'))
+						return
 					}
+					const header = response.headers['cache-control']
+					finish(() => resolve({ body, cacheControl: typeof header === 'string' ? header : null }))
 				})
-				response.on('error', reject)
+				response.on('error', fail)
 			}
 		)
-		outgoing.on('timeout', () =>
-			outgoing.destroy(new MetadataFetchError('Metadata fetch timed out'))
-		)
-		outgoing.on('error', (error) =>
-			reject(error instanceof MetadataFetchError ? error : new MetadataFetchError(error.message))
-		)
+		const deadline = setTimeout(() => {
+			outgoing.destroy()
+			fail(new MetadataFetchError(`Metadata fetch passed its ${transport.deadlineMs} ms deadline`))
+		}, transport.deadlineMs)
+		outgoing.on('error', fail)
 		outgoing.end()
 	})
+}
+
+export function fetchMetadataDocument(clientId: string): Promise<FetchedDocument> {
+	const url = new URL(clientId)
+	if (url.protocol !== 'https:' || (url.port !== '' && url.port !== '443')) {
+		return Promise.reject(new MetadataFetchError('Client id urls must be https on port 443'))
+	}
+	if (isIP(url.hostname.replace(/^\[|\]$/g, '')) !== 0) {
+		return Promise.reject(new MetadataFetchError('Client id urls must use a host name'))
+	}
+	return readDocument(url, HTTPS)
 }

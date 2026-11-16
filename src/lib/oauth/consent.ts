@@ -14,9 +14,10 @@ export type ConsentState =
 export async function consentState(
 	params: URLSearchParams,
 	origin: string,
-	listenerId: number | null
+	listenerId: number | null,
+	ip: string
 ): Promise<ConsentState> {
-	const client = await resolveClient(params.get('client_id'))
+	const client = await resolveClient(params.get('client_id'), ip)
 	const check = checkAuthorizeRequest(params, client, origin)
 	if (check.kind !== 'ok') return check
 	if (listenerId === null) return { kind: 'needs_session' }

@@ -9,13 +9,20 @@ import { CODE_SECONDS } from '@/lib/oauth/metadata'
 import { withQuery } from '@/lib/oauth/redirect-uris'
 import { hashSecret, newOpaqueSecret } from '@/lib/oauth/secrets'
 import { addCode } from '@/lib/store/oauth'
+import { forwardedIp } from '@/lib/throttle'
 
 export async function decideAuthorization(form: FormData): Promise<void> {
 	const query = form.get('query')
 	if (typeof query !== 'string') throw new Error('Consent form posted without its query')
 	const params = new URLSearchParams(query)
-	const origin = requestOrigin(await headers())
-	const state = await consentState(params, origin, await sessionListenerId())
+	const headerList = await headers()
+	const origin = requestOrigin(headerList)
+	const state = await consentState(
+		params,
+		origin,
+		await sessionListenerId(),
+		forwardedIp(headerList.get('x-forwarded-for'))
+	)
 	if (state.kind === 'needs_session' || state.kind === 'not_served') {
 		redirect(`/oauth/authorize?${params.toString()}`)
 	}
