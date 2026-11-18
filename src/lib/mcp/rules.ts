@@ -15,7 +15,7 @@ const PACKAGE_PATTERNS = [
 	/^[a-z0-9.-]+\.[a-z]{2,}(\/[A-Za-z0-9._~-]+)+$/,
 ]
 const FORBIDDEN = /[\s"'`{}[\];<>\\]/
-const PLAIN_WORDS = /^[\p{L}\p{N}][\p{L}\p{N} .,+#&'()/-]*$/u
+const PLAIN_WORDS = /^[\p{L}\p{N}][\p{L}\p{N} .,:;!?%+#&'"()/-]*$/u
 
 export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 export type DayKey = (typeof DAY_KEYS)[number]

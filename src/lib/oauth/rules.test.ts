@@ -456,3 +456,22 @@ describe('matchesRegisteredRedirect', () => {
 		expect(matchesRegisteredRedirect(claudeCode, 'https://localhost:53682/callback')).toBe(false)
 	})
 })
+
+describe('push_context summary punctuation', () => {
+	it('accepts ordinary sentence punctuation and rejects code-like characters', () => {
+		const ok = pushContextInput.safeParse({
+			project: 'acme/api',
+			summary: 'Shipping billing: Stripe webhooks, 100% done?',
+		})
+		expect(ok.success).toBe(true)
+		for (const summary of [
+			'run `rm -rf`',
+			'const x = {a: 1}',
+			'<script>',
+			'cost $5',
+			'two\nlines',
+		]) {
+			expect(pushContextInput.safeParse({ project: 'acme/api', summary }).success).toBe(false)
+		}
+	})
+})
