@@ -20,6 +20,7 @@ import { authorizationServerMetadata, protectedResourceMetadata, sameResource } 
 import {
 	isAllowedRedirectUri,
 	isAppOrLoopbackRedirect,
+	matchesRegisteredRedirect,
 	redirectHost,
 	withQuery,
 } from './redirect-uris'
@@ -417,5 +418,41 @@ describe('mcp input rules', () => {
 		expect(dayKeys([1, 7])).toEqual(['mon', 'sun'])
 		expect(setDaysInput.safeParse({ days: [] }).success).toBe(false)
 		expect(setDaysInput.safeParse({ days: ['funday'] }).success).toBe(false)
+	})
+})
+
+describe('matchesRegisteredRedirect', () => {
+	const claudeCode = ['http://localhost/callback', 'http://127.0.0.1/callback']
+
+	it('accepts any port on a registered http loopback redirect', () => {
+		expect(matchesRegisteredRedirect(claudeCode, 'http://localhost:53682/callback')).toBe(true)
+		expect(matchesRegisteredRedirect(claudeCode, 'http://127.0.0.1:8787/callback')).toBe(true)
+		expect(
+			matchesRegisteredRedirect(
+				['http://localhost:3000/callback'],
+				'http://localhost:4000/callback'
+			)
+		).toBe(true)
+	})
+
+	it('still requires the same loopback host, path and query', () => {
+		expect(matchesRegisteredRedirect(claudeCode, 'http://localhost:53682/other')).toBe(false)
+		expect(matchesRegisteredRedirect(claudeCode, 'http://localhost:53682/callback?x=1')).toBe(false)
+		expect(
+			matchesRegisteredRedirect(['http://localhost/callback'], 'http://127.0.0.1:5000/callback')
+		).toBe(false)
+		expect(matchesRegisteredRedirect(claudeCode, 'http://user@localhost:53682/callback')).toBe(
+			false
+		)
+	})
+
+	it('keeps exact matching for https and app callbacks', () => {
+		expect(
+			matchesRegisteredRedirect(['https://example.com/cb'], 'https://example.com:8443/cb')
+		).toBe(false)
+		expect(matchesRegisteredRedirect(['https://example.com/cb'], 'https://example.com/cb')).toBe(
+			true
+		)
+		expect(matchesRegisteredRedirect(claudeCode, 'https://localhost:53682/callback')).toBe(false)
 	})
 })

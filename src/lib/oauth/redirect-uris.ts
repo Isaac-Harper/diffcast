@@ -24,6 +24,36 @@ export function isAllowedRedirectUri(uri: string): boolean {
 	return url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)
 }
 
+// RFC 8252 section 7.3: native apps pick a loopback port at sign in time, so the port is ignored for http loopback
+export function matchesRegisteredRedirect(
+	registered: readonly string[],
+	requested: string
+): boolean {
+	if (registered.includes(requested)) return true
+	let asked: URL
+	try {
+		asked = new URL(requested)
+	} catch {
+		return false
+	}
+	if (asked.protocol !== 'http:' || !LOOPBACK_HOSTS.has(asked.hostname)) return false
+	if (asked.hash || asked.username || asked.password) return false
+	return registered.some((uri) => {
+		let known: URL
+		try {
+			known = new URL(uri)
+		} catch {
+			return false
+		}
+		return (
+			known.protocol === 'http:' &&
+			known.hostname === asked.hostname &&
+			known.pathname === asked.pathname &&
+			known.search === asked.search
+		)
+	})
+}
+
 export const APP_CALLBACKS: Readonly<Record<string, string>> = {
 	'cursor://anysphere.cursor-mcp/oauth/callback': 'the Cursor app on this computer',
 }

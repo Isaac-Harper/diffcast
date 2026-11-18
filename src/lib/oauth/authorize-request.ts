@@ -1,5 +1,6 @@
 import { isCodeChallenge } from './secrets'
 import { resourceFor, sameResource, SCOPE } from './metadata'
+import { matchesRegisteredRedirect } from './redirect-uris'
 
 export interface OAuthClient {
 	id: string
@@ -48,7 +49,7 @@ export function checkAuthorizeRequest(
 	if (
 		redirectUri === null ||
 		redirectUri === 'repeated' ||
-		!client.redirectUris.includes(redirectUri)
+		!matchesRegisteredRedirect(client.redirectUris, redirectUri)
 	) {
 		return {
 			kind: 'show_error',
