@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { AgentSetup } from '@/app/components/agent-setup'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
 import { ConfirmAction } from '@/app/components/confirm-action'
+import { NextEpisode } from '@/app/components/next-episode'
 import { SubmitButton } from '@/app/components/submit-button'
 import { formatInstant } from '@/lib/format'
 import { cancelScheduled, isServed, PLAN_LABELS, planOf } from '@/lib/served'
@@ -45,11 +46,13 @@ export function AccountView({
 	listener,
 	interests,
 	grants,
+	latestEpisodeDate,
 	origin,
 }: {
 	listener: Listener
 	interests: readonly StoredInterest[]
 	grants: readonly GrantRow[]
+	latestEpisodeDate: string | null
 	origin: string
 }) {
 	return (
@@ -64,15 +67,17 @@ export function AccountView({
 					Plan
 				</h2>
 				<p className="text-sm">{planLine(listener)}</p>
-				{!isServed(listener) && (
-					<p className="text-sm text-del">New episodes are paused until the plan is active.</p>
-				)}
 				{cancelScheduled(listener) && (
 					<p className="text-sm text-pretty text-muted">
 						Your feed keeps working until then, and you will not be charged again. Changed your
 						mind? Keep your plan from Manage billing.
 					</p>
 				)}
+				<NextEpisode
+					listener={listener}
+					latestEpisodeDate={latestEpisodeDate}
+					label={latestEpisodeDate === null ? 'Your first episode' : 'Your next episode'}
+				/>
 				<div className="flex flex-wrap gap-3">
 					{listener.stripe_customer_id && (
 						<form action={openBillingPortal}>
@@ -113,6 +118,12 @@ export function AccountView({
 				<h2 id="profile-heading" className="text-lg font-semibold">
 					You and your stack
 				</h2>
+				{listener.stack.length === 0 && (
+					<p className="text-sm text-pretty text-muted">
+						No stack yet. Paste a package.json or one package per line, and episodes add a segment
+						on days one of your packages ships a release.
+					</p>
+				)}
 				<ProfileForm
 					timezone={listener.timezone}
 					focus={listener.focus}
