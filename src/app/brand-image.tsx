@@ -25,7 +25,15 @@ export function BrandMark({ size }: { size: number }) {
 	)
 }
 
-export function ShareCard() {
+export function ShareCard({
+	kicker,
+	headline,
+	subline,
+}: {
+	kicker: string | null
+	headline: string
+	subline: string
+}) {
 	return (
 		<div
 			style={{
@@ -39,20 +47,19 @@ export function ShareCard() {
 				color: PAPER,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: 36 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: 36, width: '100%' }}>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 44 }}>
 					<div style={{ width: 30, height: 9, borderRadius: 9, background: REMOVED }} />
 					<div style={{ width: 44, height: 9, borderRadius: 9, background: ADDED }} />
 				</div>
 				diffcast
+				{kicker && <div style={{ marginLeft: 'auto', fontSize: 28, color: ADDED }}>{kicker}</div>}
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 				<div style={{ fontSize: 80, lineHeight: 1.04, letterSpacing: -3, maxWidth: 1000 }}>
-					What changed in your corner of tech since yesterday.
+					{headline}
 				</div>
-				<div style={{ fontSize: 32, color: '#a0a7ac' }}>
-					A private daily tech and AI news podcast. Every segment cited.
-				</div>
+				<div style={{ fontSize: 32, color: '#a0a7ac' }}>{subline}</div>
 			</div>
 		</div>
 	)

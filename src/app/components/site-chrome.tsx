@@ -36,7 +36,7 @@ export function SiteHeader() {
 						Sign in
 					</Link>
 					<Button data-variant="solid" render={<Link href="/start" />}>
-						Start
+						Start for $25
 					</Button>
 				</div>
 			</div>
