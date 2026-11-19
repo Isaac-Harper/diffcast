@@ -16,7 +16,11 @@ export interface Listener {
 	comped: boolean
 	subscription_status: string | null
 	current_period_end: string | null
+	cancel_at: string | null
+	cancel_requested_at: string | null
+	service_ended_at: string | null
 	stripe_customer_id: string | null
+	stripe_subscription_id: string | null
 }
 
 export interface ListenerSummary extends Listener {
@@ -38,7 +42,8 @@ export interface ListenerInput {
 export async function listServedListeners(): Promise<Listener[]> {
 	return (await sql`
 		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
-			l.subscription_status, l.current_period_end::text, l.stripe_customer_id
+			l.subscription_status, l.current_period_end::text, l.cancel_at::text,
+			l.cancel_requested_at::text, l.service_ended_at::text, l.stripe_customer_id, l.stripe_subscription_id
 		FROM listeners l WHERE ${servedListener()} ORDER BY l.id
 	`) as Listener[]
 }
@@ -46,7 +51,8 @@ export async function listServedListeners(): Promise<Listener[]> {
 export async function findServedListenerByEmail(email: string): Promise<Listener | null> {
 	const rows = (await sql`
 		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
-			l.subscription_status, l.current_period_end::text, l.stripe_customer_id
+			l.subscription_status, l.current_period_end::text, l.cancel_at::text,
+			l.cancel_requested_at::text, l.service_ended_at::text, l.stripe_customer_id, l.stripe_subscription_id
 		FROM listeners l WHERE lower(l.email) = lower(${email}) AND ${servedListener()}
 		ORDER BY l.id LIMIT 1
 	`) as Listener[]
@@ -56,7 +62,8 @@ export async function findServedListenerByEmail(email: string): Promise<Listener
 export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 	return (await sql`
 		SELECT l.id, l.name, l.email, l.timezone, l.stack, l.focus, l.minutes, l.days, l.active, l.comped,
-			l.subscription_status, l.current_period_end::text, l.stripe_customer_id,
+			l.subscription_status, l.current_period_end::text, l.cancel_at::text,
+			l.cancel_requested_at::text, l.service_ended_at::text, l.stripe_customer_id, l.stripe_subscription_id,
 			(SELECT count(*)::int FROM episodes e WHERE e.listener_id = l.id) AS episode_count,
 			(SELECT max(published_on)::text FROM episodes e WHERE e.listener_id = l.id) AS last_episode,
 			(SELECT max(last_fetched_at)::text FROM feed_tokens t WHERE t.listener_id = l.id)
@@ -68,7 +75,8 @@ export async function listListenerSummaries(): Promise<ListenerSummary[]> {
 export async function getListener(id: number): Promise<Listener | null> {
 	const rows = (await sql`
 		SELECT id, name, email, timezone, stack, focus, minutes, days, active, comped, subscription_status,
-			current_period_end::text, stripe_customer_id
+			current_period_end::text, cancel_at::text, cancel_requested_at::text, service_ended_at::text,
+			stripe_customer_id, stripe_subscription_id
 		FROM listeners WHERE id = ${id}
 	`) as Listener[]
 	return rows[0] ?? null

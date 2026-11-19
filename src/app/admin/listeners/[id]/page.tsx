@@ -6,7 +6,7 @@ import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
 import { customerDashboardUrl } from '@/lib/billing/stripe'
 import { formatInstant } from '@/lib/format'
-import { PLAN_LABELS, planOf } from '@/lib/served'
+import { cancelScheduled, PLAN_LABELS, planOf } from '@/lib/served'
 import { wholeId } from '@/lib/forms'
 import { stackToLines } from '@/lib/stack-parser'
 import { listFeedTokens } from '@/lib/store/feed-tokens'
@@ -41,8 +41,11 @@ export default async function ListenerPage({
 					<h1 className="text-xl font-semibold">{listener.name}</h1>
 					<p className="text-sm text-muted">
 						{listener.active ? 'Active' : 'Inactive'} · {PLAN_LABELS[planOf(listener)]}
-						{listener.current_period_end &&
-							` until ${formatInstant(listener.current_period_end)}`}{' '}
+						{listener.current_period_end && ` until ${formatInstant(listener.current_period_end)}`}
+						{cancelScheduled(listener) &&
+							` · cancels ${formatInstant(listener.cancel_at)}, asked ${formatInstant(listener.cancel_requested_at)}`}
+						{listener.service_ended_at &&
+							` · service ended ${formatInstant(listener.service_ended_at)}`}{' '}
 						·{' '}
 						<Link href={`/admin/episodes?listener=${listener.id}`} className="underline">
 							Episodes

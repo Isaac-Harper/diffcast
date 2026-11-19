@@ -27,7 +27,11 @@ export function BusinessView({ report }: { report: BusinessReport }) {
 					value={String(report.served)}
 					detail={`${report.paying} paying, ${report.comped} comped`}
 				/>
-				<Stat label="MRR" value={`$${report.mrr}`} />
+				<Stat
+					label="MRR"
+					value={`$${report.mrr}`}
+					detail={`${report.canceling} canceling, ${report.endedThisWeek} ended this week`}
+				/>
 				<Stat
 					label="Signups this week"
 					value={`${report.signupsCompleted} of ${report.signupsStarted}`}

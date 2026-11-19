@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { AgentSetup } from '@/app/components/agent-setup'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
+import { ConfirmAction } from '@/app/components/confirm-action'
+import { NextEpisode } from '@/app/components/next-episode'
 import { SubmitButton } from '@/app/components/submit-button'
 import { formatInstant } from '@/lib/format'
-import { isServed, PLAN_LABELS, planOf } from '@/lib/served'
+import { cancelScheduled, isServed, PLAN_LABELS, planOf } from '@/lib/served'
 import { stackToLines } from '@/lib/stack-parser'
 import type { StoredInterest } from '@/lib/store/interests'
 import type { Listener } from '@/lib/store/listeners'
@@ -11,6 +13,7 @@ import type { GrantRow } from '@/lib/store/oauth'
 import { COMMON_TIME_ZONES } from '@/lib/time'
 import { signOut } from '../signin/actions'
 import {
+	cancelSubscription,
 	disconnectAgent,
 	openBillingPortal,
 	saveAccountDays,
@@ -24,20 +27,32 @@ function planLine(listener: Listener): string {
 	if (plan === 'comped') return 'Comped: episodes are on the house.'
 	if (plan === 'none') return 'No subscription.'
 	const label = `Standard, $25 a month · ${PLAN_LABELS[plan]}`
-	if (!listener.current_period_end) return label
-	const verb = plan === 'canceled' ? 'Ended' : 'Current period ends'
-	return `${label} · ${verb} ${formatInstant(listener.current_period_end)}`
+	if (cancelScheduled(listener)) return `${label} · Cancels ${formatInstant(listener.cancel_at)}`
+	const end = plan === 'canceled' ? listener.service_ended_at : listener.current_period_end
+	if (!end) return label
+	return `${label} · ${plan === 'canceled' ? 'Ended' : 'Renews'} ${formatInstant(end)}`
+}
+
+function canCancel(listener: Listener): boolean {
+	return (
+		listener.stripe_subscription_id !== null &&
+		!listener.comped &&
+		isServed(listener) &&
+		listener.cancel_at === null
+	)
 }
 
 export function AccountView({
 	listener,
 	interests,
 	grants,
+	latestEpisodeDate,
 	origin,
 }: {
 	listener: Listener
 	interests: readonly StoredInterest[]
 	grants: readonly GrantRow[]
+	latestEpisodeDate: string | null
 	origin: string
 }) {
 	return (
@@ -52,14 +67,37 @@ export function AccountView({
 					Plan
 				</h2>
 				<p className="text-sm">{planLine(listener)}</p>
-				{!isServed(listener) && (
-					<p className="text-sm text-del">New episodes are paused until the plan is active.</p>
+				{cancelScheduled(listener) && (
+					<p className="text-sm text-pretty text-muted">
+						Your feed keeps working until then, and you will not be charged again. Changed your
+						mind? Keep your plan from Manage billing.
+					</p>
 				)}
-				{listener.stripe_customer_id && (
-					<form action={openBillingPortal}>
-						<SubmitButton>Manage billing</SubmitButton>
-					</form>
-				)}
+				<NextEpisode
+					listener={listener}
+					latestEpisodeDate={latestEpisodeDate}
+					label={latestEpisodeDate === null ? 'Your first episode' : 'Your next episode'}
+				/>
+				<div className="flex flex-wrap gap-3">
+					{listener.stripe_customer_id && (
+						<form action={openBillingPortal}>
+							<SubmitButton>Manage billing</SubmitButton>
+						</form>
+					)}
+					{canCancel(listener) && listener.current_period_end && (
+						<ConfirmAction
+							action={cancelSubscription}
+							fields={{}}
+							trigger="Cancel subscription"
+							title="Cancel your subscription?"
+							description={`Episodes keep coming until ${formatInstant(listener.current_period_end)}, then your feed stops. You will not be charged again.`}
+							confirmLabel="Cancel subscription"
+							doneMessage="Subscription canceled. Episodes continue until the period ends."
+							dismissLabel="Keep subscription"
+							destructive
+						/>
+					)}
+				</div>
 			</section>
 
 			<section className="card space-y-3" aria-labelledby="interests-heading">
@@ -80,6 +118,12 @@ export function AccountView({
 				<h2 id="profile-heading" className="text-lg font-semibold">
 					You and your stack
 				</h2>
+				{listener.stack.length === 0 && (
+					<p className="text-sm text-pretty text-muted">
+						No stack yet. Paste a package.json or one package per line, and episodes add a segment
+						on days one of your packages ships a release.
+					</p>
+				)}
 				<ProfileForm
 					timezone={listener.timezone}
 					focus={listener.focus}

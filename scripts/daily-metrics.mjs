@@ -25,6 +25,12 @@ try {
 	const hasEvents = (
 		await client.query(`SELECT to_regclass('public.events') IS NOT NULL AS present`)
 	).rows[0].present
+	const hasServiceEnded = (
+		await client.query(
+			`SELECT count(*) > 0 AS present FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'listeners' AND column_name = 'service_ended_at'`
+		)
+	).rows[0].present
 	const events = async (kind) =>
 		hasEvents
 			? String(
@@ -46,10 +52,17 @@ try {
 	const paidYesterday = await count(
 		`SELECT count(*) FROM signups WHERE ${onYesterday('completed_at')}`
 	)
-	const churned = await events('cancel')
+	const churned = hasServiceEnded
+		? String(
+				await count(
+					`SELECT count(*) FROM listeners WHERE NOT comped AND ${onYesterday('service_ended_at')}`
+				)
+			)
+		: 'n/a'
 	await client.query('ROLLBACK')
-	if (!hasEvents)
-		console.error('events table missing (migration 008 not applied): visits and churned are n/a')
+	if (!hasEvents) console.error('events table missing (migration 010 not applied): visits is n/a')
+	if (!hasServiceEnded)
+		console.error('listeners.service_ended_at missing (migration 009 not applied): churned is n/a')
 	console.error(`day ${day} (America/Los_Angeles)`)
 	console.log(
 		`visits ${visits}, signups ${signups}, checkouts ${checkouts}, paid ${paidNow} (+${paidYesterday}), churned ${churned}`
