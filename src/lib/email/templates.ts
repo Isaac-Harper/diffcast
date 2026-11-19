@@ -57,7 +57,7 @@ export function welcomeEmail(input: {
 		),
 		link('Your listener page (episodes, feedback, topics)', input.pageUrl),
 		paragraph(
-			'Your episodes follow the topics you picked. Change them, or add a take you want tested, on your listener page any time before the episode is made.'
+			'Your episodes follow your topics. Change them, or add a take you want tested, on your listener page any time before the episode is made.'
 		),
 		paragraph(
 			'Keep both links private: anyone with them can hear your episodes. To change your interests, stack, days or billing later, sign in with this email address:'
