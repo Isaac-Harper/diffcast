@@ -1,5 +1,6 @@
 'use client'
 
+import { Checkbox, CheckboxGroup } from '@ui-sdk/react/checkbox'
 import { Field, FieldDescription, FieldLabel } from '@ui-sdk/react/field'
 import { Input } from '@ui-sdk/react/input'
 import { Textarea } from '@ui-sdk/react/textarea'
@@ -8,8 +9,9 @@ import { useActionState, useState, useSyncExternalStore } from 'react'
 import { DaysField } from '@/app/components/days-field'
 import { FormStatus } from '@/app/components/form-status'
 import { SubmitButton } from '@/app/components/submit-button'
+import { DEFAULT_INTERESTS, SUGGESTED_TOPICS } from '@/lib/interests'
 import { ISO_WEEKDAYS } from '@/lib/schedule'
-import { MAX_INTERESTS_TEXT, MAX_STACK_TEXT } from '@/lib/signup'
+import { MAX_INTERESTS_TEXT, MAX_OTHER_TOPICS_TEXT, MAX_STACK_TEXT } from '@/lib/signup'
 import { startCheckout } from './actions'
 import type { StartResult } from './actions'
 
@@ -57,13 +59,24 @@ export function StartForm({ timeZones }: { timeZones: readonly string[] }) {
 				defaultDays={ISO_WEEKDAYS}
 				description="Weekdays are the daily news, Saturday the week in review, Sunday the week ahead."
 			/>
-			<Field name="interests">
-				<FieldLabel>What do you want to hear about? (optional)</FieldLabel>
-				<Textarea rows={3} maxLength={MAX_INTERESTS_TEXT} />
+			<Field>
+				<FieldLabel>Topics</FieldLabel>
 				<FieldDescription>
-					Topics, tools, companies, arguments you are tired of. Your own words are fine. You can
-					fine tune your interests after signing up.
+					Each episode is built from these. Keep the ones you want, add your own below.
 				</FieldDescription>
+				<CheckboxGroup name="topics" defaultValue={[...DEFAULT_INTERESTS]} data-chips="">
+					{SUGGESTED_TOPICS.map((topic) => (
+						<label key={topic}>
+							<Checkbox value={topic} />
+							<span>{topic}</span>
+						</label>
+					))}
+				</CheckboxGroup>
+			</Field>
+			<Field name="otherTopics">
+				<FieldLabel>Other topics (optional)</FieldLabel>
+				<Input maxLength={MAX_OTHER_TOPICS_TEXT} placeholder="Rust, Postgres, local LLMs" />
+				<FieldDescription>Separate them with commas.</FieldDescription>
 			</Field>
 			<Field name="stack">
 				<FieldLabel>Your stack (optional)</FieldLabel>
@@ -76,6 +89,13 @@ export function StartForm({ timeZones }: { timeZones: readonly string[] }) {
 				<FieldDescription>
 					Paste a package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod or Gemfile, or
 					one package per line. It adds a segment on days your packages change.
+				</FieldDescription>
+			</Field>
+			<Field name="interests">
+				<FieldLabel>Anything else the hosts should know? (optional)</FieldLabel>
+				<Textarea rows={2} maxLength={MAX_INTERESTS_TEXT} />
+				<FieldDescription>
+					Your role, what you are building, arguments you are tired of. Your own words are fine.
 				</FieldDescription>
 			</Field>
 			<div className="honeypot" aria-hidden="true">

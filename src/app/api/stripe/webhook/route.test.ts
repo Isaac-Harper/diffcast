@@ -13,7 +13,15 @@ interface FakeListener {
 	subscriptionId: string
 	status: string
 	periodEnd: Date | null
-	interestsSeeded: number
+	cancelAt: Date | null
+	topicsSeeded: readonly string[]
+}
+
+interface FakeSubscription {
+	status: string
+	periodEnd: number
+	cancelAtPeriodEnd?: boolean
+	canceledAt?: number
 }
 
 const state = vi.hoisted(() => ({
@@ -24,6 +32,7 @@ const state = vi.hoisted(() => ({
 			id: number
 			email: string
 			timezone: string
+			topics: string[]
 			interests_text: string
 			stack_text: string
 			days: number[]
@@ -32,7 +41,7 @@ const state = vi.hoisted(() => ({
 		}
 	>(),
 	listeners: [] as FakeListener[],
-	subscriptions: new Map<string, { status: string; periodEnd: number }>(),
+	subscriptions: new Map<string, FakeSubscription>(),
 	tokens: [] as { listenerId: number; label: string; revoked: boolean }[],
 	taggedCustomers: [] as string[],
 	mailer: null as unknown as FakeMailer,
@@ -62,6 +71,9 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => {
 						id,
 						status: subscription.status,
 						items: { data: [{ current_period_end: subscription.periodEnd }] },
+						cancel_at: null,
+						cancel_at_period_end: subscription.cancelAtPeriodEnd ?? false,
+						canceled_at: subscription.canceledAt ?? null,
 					}
 				},
 			},
@@ -73,6 +85,8 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => {
 		}),
 	}
 })
+
+vi.mock('@/lib/store/episodes', () => ({ latestEpisodeDate: async () => null }))
 
 vi.mock('@/lib/store/feed-tokens', () => ({
 	addFeedToken: async (listenerId: number, label: string) => {
@@ -98,6 +112,9 @@ vi.mock('@/lib/store/billing', () => ({
 	upsertPaidListener: async (input: {
 		signupId: number
 		email: string
+		timezone: string
+		days: number[]
+		topics: readonly string[]
 		customerId: string
 		subscription: { subscriptionId: string; status: string; periodEnd: Date | null }
 	}) => {
@@ -111,7 +128,8 @@ vi.mock('@/lib/store/billing', () => ({
 				subscriptionId: input.subscription.subscriptionId,
 				status: input.subscription.status,
 				periodEnd: input.subscription.periodEnd,
-				interestsSeeded: 6,
+				cancelAt: null,
+				topicsSeeded: input.topics,
 			}
 			state.listeners.push(listener)
 		}
@@ -120,7 +138,7 @@ vi.mock('@/lib/store/billing', () => ({
 		for (const signup of state.signups.values()) {
 			if (signup.id === input.signupId) signup.listener_id = listener.id
 		}
-		return listener.id
+		return { id: listener.id, timezone: input.timezone, days: input.days }
 	},
 	markSignupCompleted: async (signupId: number) => {
 		for (const signup of state.signups.values()) {
@@ -129,18 +147,26 @@ vi.mock('@/lib/store/billing', () => ({
 	},
 	listenerForSubscription: async (id: string) =>
 		state.listeners.find((listener) => listener.subscriptionId === id)?.id ?? null,
-	syncSubscription: async (input: { subscriptionId: string; status: string; periodEnd: Date }) => {
+	syncSubscription: async (input: {
+		subscriptionId: string
+		status: string
+		periodEnd: Date
+		cancelAt: Date | null
+	}) => {
 		const listener = state.listeners.find((entry) => entry.subscriptionId === input.subscriptionId)
 		if (!listener) return null
 		const previousStatus = listener.status
+		const served = (status: string) => status === 'active' || status === 'past_due'
 		listener.status = input.status
 		listener.periodEnd = input.periodEnd
+		listener.cancelAt = input.cancelAt
 		return {
 			listenerId: listener.id,
 			email: listener.email,
 			comped: listener.comped,
 			previousStatus,
 			status: input.status,
+			serviceEnded: served(previousStatus) && !served(input.status) && !listener.comped,
 		}
 	},
 }))
@@ -200,6 +226,7 @@ beforeEach(() => {
 				id: 1,
 				email: 'ana.lopez@example.com',
 				timezone: 'Europe/Berlin',
+				topics: ['Rust', 'Databases'],
 				interests_text: 'Rust',
 				stack_text: 'npm:next',
 				days: [1, 2, 3, 4, 5, 6, 7],
@@ -241,6 +268,7 @@ describe('stripe webhook', () => {
 				subscriptionId: 'sub_one',
 				status: 'active',
 				periodEnd: new Date(PERIOD_END * 1000),
+				topicsSeeded: ['Rust', 'Databases'],
 			},
 		])
 		expect(state.tokens).toEqual([{ listenerId: 1, label: 'Welcome email', revoked: false }])
@@ -248,7 +276,18 @@ describe('stripe webhook', () => {
 		expect(state.mailer.sent).toHaveLength(1)
 		expect(state.mailer.sent[0]?.to).toBe('ana.lopez@example.com')
 		expect(state.mailer.sent[0]?.text).toMatch(/https:\/\/diffcast\.fm\/api\/feed\/[0-9a-f]{64}/)
+		expect(state.mailer.sent[0]?.text).toMatch(
+			/Your first episode: (Today|Tomorrow), \w+day, \w+ \d+, by 6:00 AM GMT\+1 \(/
+		)
 		expect(state.signups.get('cs_test_one')?.completed_at).toBe('now')
+	})
+
+	it('seeds the default topics for a signup saved before topics existed', async () => {
+		const signup = state.signups.get('cs_test_one')
+		if (!signup) throw new Error('fixture missing')
+		signup.topics = []
+		await send(signed(event('checkout.session.completed', checkoutSession())))
+		expect(state.listeners[0]?.topicsSeeded).toHaveLength(6)
 	})
 
 	it('answers a duplicate event with 200 and does nothing again', async () => {
@@ -347,6 +386,24 @@ describe('stripe webhook', () => {
 			signed(event('customer.subscription.updated', { id: 'sub_one', object: 'subscription' }))
 		)
 		expect(state.mailer.sent).toHaveLength(2)
+	})
+
+	it('records a cancel at period end without ending service or emailing', async () => {
+		await send(signed(event('checkout.session.completed', checkoutSession())))
+		state.subscriptions.set('sub_one', {
+			status: 'active',
+			periodEnd: PERIOD_END,
+			cancelAtPeriodEnd: true,
+			canceledAt: PERIOD_END - 86_400,
+		})
+		await send(
+			signed(event('customer.subscription.updated', { id: 'sub_one', object: 'subscription' }))
+		)
+		expect(state.listeners[0]).toMatchObject({
+			status: 'active',
+			cancelAt: new Date(PERIOD_END * 1000),
+		})
+		expect(state.mailer.sent).toHaveLength(1)
 	})
 
 	it('ignores subscription events for subscriptions it does not know', async () => {

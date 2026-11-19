@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { CopyButton } from '@/app/components/copy-button'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
+import { NextEpisode } from '@/app/components/next-episode'
 import { SegmentList } from '@/app/components/segment-list'
 import { Wordmark } from '@/app/components/wordmark'
 import { feedAccess } from '@/lib/feed-access'
@@ -49,6 +50,14 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 				<SignInLinkForm token={token} />
 			</header>
 
+			<section className="card" aria-label="Next episode">
+				<NextEpisode
+					listener={listener}
+					latestEpisodeDate={episodes[0]?.published_on ?? null}
+					label={episodes.length === 0 ? 'Your first episode' : 'Your next episode'}
+				/>
+			</section>
+
 			<section className="card space-y-3" aria-labelledby="interests-heading">
 				<h2 id="interests-heading" className="font-medium">
 					What your episodes cover
@@ -79,8 +88,9 @@ async function ListenerView({ params }: { params: Promise<{ token: string }> }) 
 
 			<section className="space-y-6" aria-label="Episodes">
 				{episodes.length === 0 && (
-					<p className="text-muted">
-						No episodes yet. The first one lands on the next morning you picked.
+					<p className="card text-pretty text-muted">
+						No episodes yet. Add the feed above to your podcast app and the first one downloads on
+						its own. Topic and day changes count until the episode is made.
 					</p>
 				)}
 				{episodes.map((episode) => {

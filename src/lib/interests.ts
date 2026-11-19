@@ -21,6 +21,18 @@ export const DEFAULT_INTERESTS = [
 	'Hardware and chips',
 ] as const
 
+export const SUGGESTED_TOPICS = [
+	...DEFAULT_INTERESTS,
+	'Cloud and infrastructure',
+	'Databases',
+	'Programming languages',
+	'Frontend frameworks',
+	'Mobile development',
+	'Data and machine learning engineering',
+	'DevOps and platform engineering',
+	'Tech policy and regulation',
+] as const
+
 export interface InterestRow {
 	topic: string
 	take: string | null

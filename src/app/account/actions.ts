@@ -4,12 +4,15 @@ import { refresh } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { portalConfigurationId, stripe } from '@/lib/billing/stripe'
+import { subscriptionState } from '@/lib/billing/webhook'
 import { feedUrl, hashFeedToken, listenerPageUrl, newFeedToken } from '@/lib/feed-tokens'
 import type { FormResult } from '@/lib/form-result'
 import { parseDaysForm, parseProfileForm, wholeId } from '@/lib/forms'
 import { requestOrigin } from '@/lib/http'
 import { parseInterestsEditor } from '@/lib/interests-form'
 import { endAllSessions, endOtherSessions, requireListener } from '@/lib/listener-auth'
+import { isServed } from '@/lib/served'
+import { syncSubscription } from '@/lib/store/billing'
 import { addFeedToken, revokeListenerFeedTokens } from '@/lib/store/feed-tokens'
 import { saveInterests } from '@/lib/store/interests'
 import { revokeListenerGrant } from '@/lib/store/oauth'
@@ -77,6 +80,21 @@ export async function openBillingPortal(): Promise<void> {
 		return_url: `${requestOrigin(await headers())}/account`,
 	})
 	redirect(portal.url)
+}
+
+export async function cancelSubscription(): Promise<void> {
+	const listenerId = await requireListener()
+	const listener = await getListener(listenerId)
+	if (!listener?.stripe_subscription_id || listener.comped || !isServed(listener)) {
+		throw new Error(`Listener ${listenerId} has no subscription to cancel`)
+	}
+	if (listener.cancel_at === null) {
+		const subscription = await stripe().subscriptions.update(listener.stripe_subscription_id, {
+			cancel_at_period_end: true,
+		})
+		await syncSubscription(subscriptionState(subscription))
+	}
+	refresh()
 }
 
 export async function issueAccountFeedLink(

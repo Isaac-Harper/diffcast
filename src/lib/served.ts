@@ -31,3 +31,7 @@ export const PLAN_LABELS: Record<Plan, string> = {
 	canceled: 'Canceled',
 	none: 'No plan',
 }
+
+export function cancelScheduled(listener: Billing & { cancel_at: string | null }): boolean {
+	return !listener.comped && listener.cancel_at !== null && isServed(listener)
+}
