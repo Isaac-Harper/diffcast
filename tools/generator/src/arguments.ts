@@ -8,6 +8,7 @@ export type RunOptions = {
 	fromStep: Step | null
 	dryRun: boolean
 	smoke: boolean
+	sample: boolean
 	noUpload: boolean
 	now: string | null
 }
@@ -26,6 +27,7 @@ export function parseRunOptions(args: string[]): RunOptions {
 			'from-step': { type: 'string' },
 			'dry-run': { type: 'boolean', default: false },
 			smoke: { type: 'boolean', default: false },
+			sample: { type: 'boolean', default: false },
 			'no-upload': { type: 'boolean', default: false },
 			now: { type: 'string' },
 		},
@@ -37,7 +39,8 @@ export function parseRunOptions(args: string[]): RunOptions {
 	const date = values.date ?? null
 	if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date))
 		throw new Error('--date must be YYYY-MM-DD')
-	if (date !== null && listenerId === null) throw new Error('--date needs --listener')
+	if (date !== null && listenerId === null && !values.sample)
+		throw new Error('--date needs --listener')
 	const fromStepValue = values['from-step']
 	if (fromStepValue !== undefined && !isStep(fromStepValue)) {
 		throw new Error(`--from-step must be one of ${STEPS.join(', ')}`)
@@ -52,12 +55,18 @@ export function parseRunOptions(args: string[]): RunOptions {
 	if (values['dry-run'] && values.smoke) throw new Error('--dry-run and --smoke are exclusive')
 	if (values.smoke && values['no-upload'])
 		throw new Error('--smoke always uploads; drop --no-upload')
+	if (
+		values.sample &&
+		(values['dry-run'] || values.smoke || fromStep !== null || listenerId !== null)
+	)
+		throw new Error('--sample stands alone (only --date and --now are allowed beside it)')
 	return {
 		listenerId,
 		date,
 		fromStep,
 		dryRun: values['dry-run'],
 		smoke: values.smoke,
+		sample: values.sample,
 		noUpload: values['no-upload'],
 		now,
 	}

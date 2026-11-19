@@ -1,0 +1,22 @@
+{
+	"listeners": [
+		{
+			"listenerId": 999999,
+			"date": "2026-01-01",
+			"format": "daily",
+			"since": null,
+			"timezone": "America/Los_Angeles",
+			"minutes": 10,
+			"stack": [],
+			"focus": "A developer who follows the broad tech and AI news cycle. This is the public sample episode: generic interests, no personal details.",
+			"interests": [
+				{ "topic": "AI models and agents", "take": null, "note": null },
+				{ "topic": "Developer tools and web development", "take": null, "note": null },
+				{ "topic": "Security and privacy", "take": null, "note": null }
+			],
+			"recent": [],
+			"feedback": [],
+			"workContext": []
+		}
+	]
+}

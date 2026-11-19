@@ -8,7 +8,7 @@ export const DEFAULT_COHOST_VOICE = 'iP95p4xoKVk53GoZ742B'
 
 export type JobApiConfig = { jobUrl: string; jobToken: string }
 
-export type LiveConfig = JobApiConfig & {
+export type GatewayConfig = {
 	gatewayApiKey: string
 	researchModel: string
 	writerModel: string
@@ -16,6 +16,8 @@ export type LiveConfig = JobApiConfig & {
 	hostVoice: string
 	cohostVoice: string
 }
+
+export type LiveConfig = JobApiConfig & GatewayConfig
 
 type Environment = Record<string, string | undefined>
 
@@ -43,10 +45,9 @@ export function loadJobApiConfig(environment: Environment): JobApiConfig {
 	}
 }
 
-export function loadLiveConfig(environment: Environment): LiveConfig {
-	requireEnvironment(environment, ['DIFFCAST_URL', 'DIFFCAST_JOB_TOKEN', 'AI_GATEWAY_API_KEY'])
+export function loadGatewayConfig(environment: Environment): GatewayConfig {
+	requireEnvironment(environment, ['AI_GATEWAY_API_KEY'])
 	return {
-		...loadJobApiConfig(environment),
 		gatewayApiKey: requiredValue(environment, 'AI_GATEWAY_API_KEY'),
 		researchModel: environment['DIFFCAST_RESEARCH_MODEL'] || DEFAULT_RESEARCH_MODEL,
 		writerModel: environment['DIFFCAST_WRITER_MODEL'] || DEFAULT_WRITER_MODEL,
@@ -54,4 +55,9 @@ export function loadLiveConfig(environment: Environment): LiveConfig {
 		hostVoice: environment['DIFFCAST_HOST_VOICE'] || DEFAULT_HOST_VOICE,
 		cohostVoice: environment['DIFFCAST_COHOST_VOICE'] || DEFAULT_COHOST_VOICE,
 	}
+}
+
+export function loadLiveConfig(environment: Environment): LiveConfig {
+	requireEnvironment(environment, ['DIFFCAST_URL', 'DIFFCAST_JOB_TOKEN', 'AI_GATEWAY_API_KEY'])
+	return { ...loadJobApiConfig(environment), ...loadGatewayConfig(environment) }
 }
