@@ -45,11 +45,15 @@ export async function addFeedToken(
 	listenerId: number,
 	label: string,
 	tokenHash: string
-): Promise<void> {
-	await sql`
+): Promise<number> {
+	const rows = (await sql`
 		INSERT INTO feed_tokens (listener_id, label, token_hash)
 		VALUES (${listenerId}, ${label}, ${tokenHash})
-	`
+		RETURNING id
+	`) as { id: number }[]
+	const row = rows[0]
+	if (!row) throw new Error('Feed token insert returned no row')
+	return row.id
 }
 
 export async function revokeFeedToken(id: number): Promise<void> {
