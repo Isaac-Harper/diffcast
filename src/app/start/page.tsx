@@ -32,8 +32,8 @@ export default function StartPage({ searchParams }: PageProps<'/start'>) {
 				<p className="font-mono text-sm text-muted">Standard · $25 a month</p>
 				<h1 className="mt-3 text-title font-semibold text-balance">Start your Diffcast</h1>
 				<p className="mt-4 text-lg leading-8 text-pretty text-muted">
-					Tell us where you are and what you care about. Payment is on the next page, and your
-					private feed link is ready right after.
+					Pick your topics and paste your stack: it takes about a minute. Payment is on the next
+					page, and your private feed link is ready right after.
 				</p>
 				<Suspense>
 					<CanceledNote searchParams={searchParams} />

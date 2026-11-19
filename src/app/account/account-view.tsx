@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { AgentSetup } from '@/app/components/agent-setup'
 import { DaysForm, InterestsForm } from '@/app/components/listener-settings'
+import { NextEpisode } from '@/app/components/next-episode'
 import { SubmitButton } from '@/app/components/submit-button'
 import { formatInstant } from '@/lib/format'
-import { isServed, PLAN_LABELS, planOf } from '@/lib/served'
+import { PLAN_LABELS, planOf } from '@/lib/served'
 import { stackToLines } from '@/lib/stack-parser'
 import type { StoredInterest } from '@/lib/store/interests'
 import type { Listener } from '@/lib/store/listeners'
@@ -33,11 +34,13 @@ export function AccountView({
 	listener,
 	interests,
 	grants,
+	latestEpisodeDate,
 	origin,
 }: {
 	listener: Listener
 	interests: readonly StoredInterest[]
 	grants: readonly GrantRow[]
+	latestEpisodeDate: string | null
 	origin: string
 }) {
 	return (
@@ -52,9 +55,11 @@ export function AccountView({
 					Plan
 				</h2>
 				<p className="text-sm">{planLine(listener)}</p>
-				{!isServed(listener) && (
-					<p className="text-sm text-del">New episodes are paused until the plan is active.</p>
-				)}
+				<NextEpisode
+					listener={listener}
+					latestEpisodeDate={latestEpisodeDate}
+					label={latestEpisodeDate === null ? 'Your first episode' : 'Your next episode'}
+				/>
 				{listener.stripe_customer_id && (
 					<form action={openBillingPortal}>
 						<SubmitButton>Manage billing</SubmitButton>
@@ -80,6 +85,12 @@ export function AccountView({
 				<h2 id="profile-heading" className="text-lg font-semibold">
 					You and your stack
 				</h2>
+				{listener.stack.length === 0 && (
+					<p className="text-sm text-pretty text-muted">
+						No stack yet. Paste a package.json or one package per line, and episodes add a segment
+						on days one of your packages ships a release.
+					</p>
+				)}
 				<ProfileForm
 					timezone={listener.timezone}
 					focus={listener.focus}

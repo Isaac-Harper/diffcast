@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { Parsed } from './forms'
+import { MAX_INTERESTS, MAX_TOPIC } from './interests'
 import { normalizeDays } from './schedule'
 import { parseStack } from './stack-parser'
 import { Throttle } from './throttle'
@@ -13,10 +14,13 @@ export const signupAttempts = new Throttle(5, 10 * 60 * 1000)
 export interface SignupInput {
 	email: string
 	timezone: string
+	topics: string[]
 	interestsText: string
 	stackText: string
 	days: number[]
 }
+
+export const MAX_OTHER_TOPICS_TEXT = 1000
 
 const signupSchema = z.object({
 	email: z
@@ -47,6 +51,31 @@ function field(form: FormData, key: string): string {
 	return typeof value === 'string' ? value : ''
 }
 
+export function parseSignupTopics(form: FormData): Parsed<string[]> {
+	const other = field(form, 'otherTopics')
+	if (other.length > MAX_OTHER_TOPICS_TEXT) {
+		return { ok: false, error: `Keep other topics under ${MAX_OTHER_TOPICS_TEXT} characters.` }
+	}
+	const picked = form.getAll('topics').map((value) => (typeof value === 'string' ? value : ''))
+	const topics: string[] = []
+	const seen = new Set<string>()
+	for (const raw of [...picked, ...other.split(/[,\n]/)]) {
+		const topic = raw.trim().replace(/\s+/g, ' ')
+		const key = topic.toLowerCase()
+		if (!topic || seen.has(key)) continue
+		if (topic.length > MAX_TOPIC) {
+			return { ok: false, error: `Keep each topic under ${MAX_TOPIC} characters.` }
+		}
+		seen.add(key)
+		topics.push(topic)
+	}
+	if (topics.length === 0) return { ok: false, error: 'Pick at least one topic.' }
+	if (topics.length > MAX_INTERESTS) {
+		return { ok: false, error: `Keep it to ${MAX_INTERESTS} topics.` }
+	}
+	return { ok: true, input: topics }
+}
+
 export function parseSignupForm(form: FormData): Parsed<SignupInput> {
 	const parsed = signupSchema.safeParse({
 		email: field(form, 'email'),
@@ -59,11 +88,13 @@ export function parseSignupForm(form: FormData): Parsed<SignupInput> {
 	}
 	const days = normalizeDays(form.getAll('days'))
 	if (!days) return { ok: false, error: 'Pick at least one day.' }
+	const topics = parseSignupTopics(form)
+	if (!topics.ok) return topics
 	if (parsed.data.stackText) {
 		const stack = parseStack(parsed.data.stackText)
 		if (!stack.ok) return { ok: false, error: stack.error }
 	}
-	return { ok: true, input: { ...parsed.data, days } }
+	return { ok: true, input: { ...parsed.data, topics: topics.input, days } }
 }
 
 export function nameFromEmail(email: string): string {

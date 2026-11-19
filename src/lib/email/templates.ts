@@ -47,16 +47,18 @@ export function welcomeEmail(input: {
 	to: string
 	feedUrl: string
 	pageUrl: string
+	firstEpisode: string
 }): EmailMessage {
 	return message(input.to, 'Your Diffcast feed is ready', 'Welcome to Diffcast', [
-		paragraph(
-			'Your subscription is active. Your first episode arrives early on the next morning you picked, in your time zone.'
-		),
+		paragraph(`Your subscription is active. Your first episode: ${input.firstEpisode}.`),
 		link('Your private feed URL', input.feedUrl),
 		paragraph(
 			'Apple Podcasts: open Library, tap the ••• menu, choose Follow a Show by URL and paste the feed URL. Overcast: tap +, choose Add URL and paste it. Any app that follows a show by URL works.'
 		),
-		link('Your listener page (episodes, feedback, interests)', input.pageUrl),
+		link('Your listener page (episodes, feedback, topics)', input.pageUrl),
+		paragraph(
+			'Your episodes follow the topics you picked. Change them, or add a take you want tested, on your listener page any time before the episode is made.'
+		),
 		paragraph(
 			'Keep both links private: anyone with them can hear your episodes. To change your interests, stack, days or billing later, sign in with this email address:'
 		),

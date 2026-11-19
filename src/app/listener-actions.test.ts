@@ -135,7 +135,12 @@ beforeEach(() => {
 })
 
 describe('start checkout', () => {
-	const valid = { email: 'new@example.com', timezone: 'America/Chicago', days: ['1', '2'] }
+	const valid = {
+		email: 'new@example.com',
+		timezone: 'America/Chicago',
+		days: ['1', '2'],
+		topics: ['Open source'],
+	}
 
 	it('saves the signup and redirects to a subscription checkout tagged for diffcast', async () => {
 		await expect(startCheckout(IDLE, form(valid))).rejects.toMatchObject({

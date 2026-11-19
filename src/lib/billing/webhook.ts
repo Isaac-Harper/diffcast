@@ -2,6 +2,8 @@ import type Stripe from 'stripe'
 import { currentMailer } from '../email/resend-mailer'
 import { subscriptionEndedEmail, welcomeEmail } from '../email/templates'
 import { feedUrl, hashFeedToken, listenerPageUrl, newFeedToken } from '../feed-tokens'
+import { DEFAULT_INTERESTS } from '../interests'
+import { describeNextEpisode, nextEpisode } from '../next-episode'
 import { SERVED_STATUSES } from '../served'
 import { nameFromEmail } from '../signup'
 import { parseStack } from '../stack-parser'
@@ -13,6 +15,7 @@ import {
 	upsertPaidListener,
 } from '../store/billing'
 import type { SubscriptionState } from '../store/billing'
+import { latestEpisodeDate } from '../store/episodes'
 import { addFeedToken } from '../store/feed-tokens'
 import { PROJECT_METADATA, stripe } from './stripe'
 
@@ -58,12 +61,13 @@ async function completeCheckout(
 	}
 	const stack = parseStack(signup.stack_text)
 	if (!stack.ok) throw new Error(`Signup ${signup.id} stack no longer parses: ${stack.error}`)
-	const listenerId = await upsertPaidListener({
+	const listener = await upsertPaidListener({
 		signupId: signup.id,
 		name: nameFromEmail(signup.email),
 		email: signup.email,
 		timezone: signup.timezone,
 		focus: signup.interests_text,
+		topics: signup.topics.length > 0 ? signup.topics : DEFAULT_INTERESTS,
 		stack: stack.dependencies,
 		days: signup.days,
 		customerId,
@@ -71,12 +75,20 @@ async function completeCheckout(
 	})
 	await stripe().customers.update(customerId, { metadata: { ...PROJECT_METADATA } })
 	const token = newFeedToken()
-	await addFeedToken(listenerId, 'Welcome email', hashFeedToken(token))
+	await addFeedToken(listener.id, 'Welcome email', hashFeedToken(token))
+	const now = new Date()
+	const first = nextEpisode(
+		now,
+		listener.timezone,
+		listener.days,
+		await latestEpisodeDate(listener.id)
+	)
 	await currentMailer().send(
 		welcomeEmail({
 			to: signup.email,
 			feedUrl: feedUrl(origin, token),
 			pageUrl: listenerPageUrl(origin, token),
+			firstEpisode: describeNextEpisode(now, first, listener.timezone),
 		})
 	)
 	await markSignupCompleted(signup.id)
