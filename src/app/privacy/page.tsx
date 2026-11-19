@@ -22,6 +22,7 @@ const SECTIONS = [
 			'Work context, if you connect a coding agent: the project alias, package names, topics and one line summary your agent sends. Each entry is kept for 30 days from its last update and then dropped; your agent or a request to us can delete it sooner. We also keep which agents you connected and when they were last used, and only hashes of their access tokens.',
 			'Billing references from Stripe: your Stripe customer and subscription ids, the subscription status and when the current period ends. We never see or store your card number.',
 			'Basic delivery records for your private feed, such as when a podcast app last fetched it and which episodes it downloaded.',
+			'Anonymous counts of steps on the site: a view of the home page, a play of the sample episode, a started signup or checkout, a completed payment and an ended subscription. Each count is only the step and the time, with no cookie, address or account attached.',
 		],
 	},
 	{
@@ -47,6 +48,7 @@ const SECTIONS = [
 			'We have not verified how long those providers retain what they process, so we make no promise about it. This is why private names are kept out of scripts.',
 			'Payments are handled by Stripe. Stripe holds your name, email, card or other payment details, billing address and your invoice and payment history, under its own privacy policy. We see only the references listed above and the amounts charged.',
 			'Email is sent through Resend, which receives your email address and the message: your welcome email, sign in links and subscription notices.',
+			'Visits to our public pages are counted with Vercel Web Analytics, which uses no cookies and identifies no one. It sees the page address and basic device and browser details; pages with a private link, your account and sign in links are never sent to it.',
 		],
 	},
 	{
@@ -69,7 +71,7 @@ export default function PrivacyPage() {
 		<>
 			<SiteHeader />
 			<main className="mx-auto w-full max-w-2xl px-5 py-14 sm:px-8 sm:py-20">
-				<p className="font-mono text-sm text-muted">Last updated November 16, 2026</p>
+				<p className="font-mono text-sm text-muted">Last updated November 18, 2026</p>
 				<h1 className="mt-3 text-title font-semibold text-balance">Privacy</h1>
 				<p className="mt-5 text-lg leading-8 text-pretty text-muted">
 					The short version: we keep your email, your interests, the stack you give us and your

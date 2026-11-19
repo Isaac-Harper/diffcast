@@ -21,6 +21,7 @@ const state = vi.hoisted(() => ({
 	served: new Map<string, { id: number; email: string }>(),
 	loginTokens: new Map<string, { listenerId: number; used: boolean }>(),
 	signups: [] as unknown[],
+	recorded: [] as string[],
 	sessions: [] as Record<string, unknown>[],
 	days: [] as { listenerId: number; days: number[] }[],
 	tokens: [] as { listenerId: number; label: string }[],
@@ -85,6 +86,11 @@ vi.mock('@/lib/store/billing', () => ({
 	returningCustomer: async () => null,
 	attachCheckoutSession: async () => undefined,
 }))
+vi.mock('@/lib/store/events', () => ({
+	recordEvent: async (kind: string) => {
+		state.recorded.push(kind)
+	},
+}))
 vi.mock('@/lib/store/login-tokens', () => ({
 	addLoginToken: async (listenerId: number, hash: string) => {
 		state.loginTokens.set(hash, { listenerId, used: false })
@@ -129,6 +135,7 @@ beforeEach(() => {
 	state.revoked = []
 	state.epochs = new Map([[5, 2]])
 	state.mailer = new FakeMailer()
+	state.recorded = []
 	signupAttempts.clear()
 	signInByIp.clear()
 	signInByEmail.clear()
@@ -156,6 +163,7 @@ describe('start checkout', () => {
 			}),
 		])
 		expect(state.sessions[0]).not.toHaveProperty('payment_method_types')
+		expect(state.recorded).toEqual(['signup_start', 'checkout_start'])
 	})
 
 	it('sends an existing subscriber to sign in instead of a second checkout', async () => {
@@ -163,6 +171,7 @@ describe('start checkout', () => {
 		expect(result.status).toBe('existing')
 		expect(state.sessions).toEqual([])
 		expect(state.signups).toEqual([])
+		expect(state.recorded).toEqual([])
 	})
 
 	it('rejects bad input and throttles by IP', async () => {

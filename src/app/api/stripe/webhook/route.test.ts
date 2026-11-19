@@ -18,6 +18,7 @@ interface FakeListener {
 
 const state = vi.hoisted(() => ({
 	events: new Set<string>(),
+	recorded: [] as string[],
 	signups: new Map<
 		string,
 		{
@@ -77,6 +78,12 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => {
 vi.mock('@/lib/store/feed-tokens', () => ({
 	addFeedToken: async (listenerId: number, label: string) => {
 		state.tokens.push({ listenerId, label })
+	},
+}))
+
+vi.mock('@/lib/store/events', () => ({
+	recordEvent: async (kind: string) => {
+		state.recorded.push(kind)
 	},
 }))
 
@@ -183,6 +190,7 @@ async function send(request: Request) {
 
 beforeEach(() => {
 	state.events = new Set()
+	state.recorded = []
 	state.listeners = []
 	state.tokens = []
 	state.taggedCustomers = []
@@ -341,6 +349,7 @@ describe('stripe webhook', () => {
 			signed(event('customer.subscription.updated', { id: 'sub_one', object: 'subscription' }))
 		)
 		expect(state.mailer.sent).toHaveLength(2)
+		expect(state.recorded).toEqual(['cancel'])
 	})
 
 	it('ignores subscription events for subscriptions it does not know', async () => {

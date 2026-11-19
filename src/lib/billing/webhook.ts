@@ -13,6 +13,7 @@ import {
 	upsertPaidListener,
 } from '../store/billing'
 import type { SubscriptionState } from '../store/billing'
+import { recordEvent } from '../store/events'
 import { addFeedToken } from '../store/feed-tokens'
 import { PROJECT_METADATA, stripe } from './stripe'
 
@@ -88,6 +89,7 @@ async function refreshSubscription(subscriptionId: string): Promise<EventOutcome
 	const change = await syncSubscription(await retrieveSubscription(subscriptionId))
 	if (!change) return 'ignored'
 	const ended = isServedStatus(change.previousStatus) && !isServedStatus(change.status)
+	if (ended && !change.comped) await recordEvent('cancel')
 	if (ended && !change.comped && change.email) {
 		await currentMailer().send(subscriptionEndedEmail({ to: change.email }))
 	}

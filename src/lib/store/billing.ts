@@ -96,7 +96,13 @@ export async function upsertPaidListener(input: {
 }
 
 export async function markSignupCompleted(signupId: number): Promise<void> {
-	await sql`UPDATE signups SET completed_at = now() WHERE id = ${signupId} AND completed_at IS NULL`
+	await sql`
+		WITH completed AS (
+			UPDATE signups SET completed_at = now() WHERE id = ${signupId} AND completed_at IS NULL
+			RETURNING id
+		)
+		INSERT INTO events (kind) SELECT 'paid' FROM completed
+	`
 }
 
 export async function listenerForSubscription(subscriptionId: string): Promise<number | null> {
