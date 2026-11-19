@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 				produceEpisode(listener, services, {
 					workDirectory,
 					fromStep: options.fromStep ?? 'research',
-					stopAfterMix: options.dryRun || options.noUpload,
+					stopAfterMix: options.dryRun || options.noUpload || options.sample,
 				}),
 			services.jobs,
 			concurrencyFrom(process.env)

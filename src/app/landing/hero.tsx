@@ -1,9 +1,11 @@
 import { Button } from '@ui-sdk/react/button'
 import Link from 'next/link'
 import { CONTAINER } from '../components/site-chrome'
+import { loadSample } from '@/lib/sample'
 import { BriefPanel } from './brief-panel'
 
 export function Hero() {
+	const hasSample = loadSample() !== null
 	return (
 		<section
 			className={`${CONTAINER} grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.35fr_1fr] lg:gap-16 lg:py-24`}
@@ -21,7 +23,7 @@ export function Hero() {
 						Start for $25 a month
 					</Button>
 					<Link href="#episode" className="text-[0.9375rem] font-medium">
-						Read sample show notes
+						{hasSample ? 'Hear a sample episode' : 'Read sample show notes'}
 					</Link>
 				</div>
 			</div>

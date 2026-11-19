@@ -1,4 +1,6 @@
 import { CONTAINER } from '../components/site-chrome'
+import { loadSample, SAMPLE_AUDIO_PATH } from '@/lib/sample'
+import type { Sample } from '@/lib/sample'
 
 const PARTS = [
 	{
@@ -109,7 +111,62 @@ function ShowNotes() {
 	)
 }
 
+function minutesLabel(seconds: number): string {
+	return `${Math.max(1, Math.round(seconds / 60))} min`
+}
+
+function SampleEpisode({ sample }: { sample: Sample }) {
+	return (
+		<article
+			aria-label="Sample episode"
+			className="rounded-card border border-line bg-surface p-5 sm:p-7"
+		>
+			<header className="space-y-2 border-b border-line pb-5">
+				<p className="flex flex-wrap justify-between gap-x-4 font-mono text-xs text-muted">
+					<span>
+						{sample.publishedOn} · {minutesLabel(sample.durationSeconds)}
+					</span>
+					<span>public sample, made for no one in particular</span>
+				</p>
+				<h3 className="text-xl font-semibold tracking-tight text-balance">{sample.title}</h3>
+			</header>
+			<audio
+				controls
+				preload="none"
+				src={SAMPLE_AUDIO_PATH}
+				aria-label={`Play the sample episode: ${sample.title}`}
+				className="mt-5 w-full"
+			/>
+			<ol>
+				{sample.segments.map((segment) => (
+					<li key={segment.heading} className="grid grid-cols-[5.25rem_1fr] gap-x-3 pt-5">
+						<span className="pt-0.5 font-mono text-xs text-add">{segment.kind}</span>
+						<div className="space-y-1.5">
+							<p className="font-medium text-pretty">{segment.heading}</p>
+							<ul className="space-y-0.5 text-sm text-muted">
+								{segment.sources.map((source) => (
+									<li key={source.url} className="flex gap-2">
+										<span aria-hidden="true">↳</span>
+										<a
+											href={source.url}
+											rel="noreferrer"
+											className="underline decoration-line underline-offset-4"
+										>
+											{source.title}
+										</a>
+									</li>
+								))}
+							</ul>
+						</div>
+					</li>
+				))}
+			</ol>
+		</article>
+	)
+}
+
 export function Episode() {
+	const sample = loadSample()
 	return (
 		<section id="episode" className="border-t border-line bg-sunken">
 			<div className={`${CONTAINER} grid gap-12 py-16 sm:py-24 lg:grid-cols-[1fr_1.1fr] lg:gap-16`}>
@@ -139,7 +196,7 @@ export function Episode() {
 						))}
 					</dl>
 				</div>
-				<ShowNotes />
+				{sample ? <SampleEpisode sample={sample} /> : <ShowNotes />}
 			</div>
 		</section>
 	)
