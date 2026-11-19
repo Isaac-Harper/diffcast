@@ -2,7 +2,6 @@ import Stripe from 'stripe'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FakeMailer } from '@/lib/email/fake-mailer'
 import { hashFeedToken } from '@/lib/feed-tokens'
-import { DEFAULT_INTERESTS } from '@/lib/interests'
 import { attachCheckoutSession, createSignup } from '@/lib/store/billing'
 import { findServedFeedToken } from '@/lib/store/feed-tokens'
 import { POST } from './route'
@@ -99,6 +98,7 @@ async function startCheckout(email: string, customer = unique('cus')) {
 	const signupId = await createSignup({
 		email,
 		timezone: 'Europe/Berlin',
+		topics: ['Rust', 'WebAssembly'],
 		interestsText: 'Rust and WebAssembly',
 		stackText: 'npm:next',
 		days: [1, 3, 5],
@@ -170,7 +170,7 @@ describe('stripe webhook on the real schema', () => {
 			`SELECT topic FROM interests WHERE listener_id = $1 ORDER BY sort`,
 			[listenerId]
 		)
-		expect(interests.map((row) => row['topic'])).toEqual([...DEFAULT_INTERESTS])
+		expect(interests.map((row) => row['topic'])).toEqual(['Rust', 'WebAssembly'])
 		expect(await signupRow(signupId)).toEqual({ listener_id: listenerId, completed: true })
 		expect(fakes.taggedCustomers).toEqual([session.customer])
 
@@ -182,6 +182,7 @@ describe('stripe webhook on the real schema', () => {
 		expect(email?.text).toContain(`https://diffcast.fm/l/${token}`)
 		expect(email?.text).toContain('Follow a Show by URL')
 		expect(email?.text).toContain('https://diffcast.fm/signin')
+		expect(email?.text).toMatch(/by 6:00\s?AM GMT\+1/)
 		expect(email?.html).toContain(`https://diffcast.fm/api/feed/${token}`)
 
 		expect(await tokensOf(listenerId)).toEqual([

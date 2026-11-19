@@ -1,12 +1,12 @@
 import type { Dependency } from '@shared/contract'
 import { sql } from '../db'
-import { DEFAULT_INTERESTS } from '../interests'
 import type { SignupInput } from '../signup'
 
 export interface SignupRow {
 	id: number
 	email: string
 	timezone: string
+	topics: string[]
 	interests_text: string
 	stack_text: string
 	days: number[]
@@ -28,11 +28,17 @@ export interface SubscriptionChange {
 	status: string
 }
 
+export interface PaidListener {
+	id: number
+	timezone: string
+	days: number[]
+}
+
 export async function createSignup(input: SignupInput): Promise<number> {
 	const rows = (await sql`
-		INSERT INTO signups (email, timezone, interests_text, stack_text, days)
-		VALUES (${input.email}, ${input.timezone}, ${input.interestsText}, ${input.stackText},
-			${input.days}::smallint[])
+		INSERT INTO signups (email, timezone, topics, interests_text, stack_text, days)
+		VALUES (${input.email}, ${input.timezone}, ${input.topics}::text[], ${input.interestsText},
+			${input.stackText}, ${input.days}::smallint[])
 		RETURNING id
 	`) as { id: number }[]
 	const row = rows[0]
@@ -49,7 +55,7 @@ export async function attachCheckoutSession(signupId: number, sessionId: string)
 
 export async function signupForSession(sessionId: string): Promise<SignupRow | null> {
 	const rows = (await sql`
-		SELECT id, email, timezone, interests_text, stack_text, days, listener_id, completed_at::text
+		SELECT id, email, timezone, topics, interests_text, stack_text, days, listener_id, completed_at::text
 		FROM signups WHERE stripe_checkout_session_id = ${sessionId}
 	`) as SignupRow[]
 	return rows[0] ?? null
@@ -61,11 +67,12 @@ export async function upsertPaidListener(input: {
 	email: string
 	timezone: string
 	focus: string
+	topics: readonly string[]
 	stack: Dependency[]
 	days: number[]
 	customerId: string
 	subscription: SubscriptionState
-}): Promise<number> {
+}): Promise<PaidListener> {
 	const rows = (await sql`
 		WITH upserted AS (
 			INSERT INTO listeners (name, email, timezone, stack, focus, days, stripe_customer_id,
@@ -78,21 +85,21 @@ export async function upsertPaidListener(input: {
 				stripe_subscription_id = EXCLUDED.stripe_subscription_id,
 				subscription_status = EXCLUDED.subscription_status,
 				current_period_end = EXCLUDED.current_period_end
-			RETURNING id, (xmax = 0) AS inserted
+			RETURNING id, timezone, days, (xmax = 0) AS inserted
 		), seeded AS (
 			INSERT INTO interests (listener_id, topic, sort)
-			SELECT upserted.id, defaults.topic, (defaults.sort - 1)::int
-			FROM upserted, unnest(${[...DEFAULT_INTERESTS]}::text[]) WITH ORDINALITY AS defaults (topic, sort)
+			SELECT upserted.id, picked.topic, (picked.sort - 1)::int
+			FROM upserted, unnest(${[...input.topics]}::text[]) WITH ORDINALITY AS picked (topic, sort)
 			WHERE upserted.inserted
 		), linked AS (
 			UPDATE signups SET listener_id = upserted.id FROM upserted
 			WHERE signups.id = ${input.signupId}
 		)
-		SELECT id FROM upserted
-	`) as { id: number }[]
+		SELECT id, timezone, days FROM upserted
+	`) as PaidListener[]
 	const row = rows[0]
 	if (!row) throw new Error('Listener upsert returned no row')
-	return row.id
+	return row
 }
 
 export async function markSignupCompleted(signupId: number): Promise<void> {

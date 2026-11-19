@@ -96,7 +96,9 @@ describe('signup form', () => {
 	const valid = {
 		email: ' Ana.Lopez+news@example.com ',
 		timezone: 'Europe/Berlin',
-		interests: 'Rust, databases',
+		topics: ['AI models and agents', 'Open source'],
+		otherTopics: ' Rust,  local   LLMs ,open source\n',
+		interests: 'Staff engineer on a payments team',
 		stack: '{"dependencies":{"next":"16"}}',
 		days: ['1', '3', '5'],
 	}
@@ -107,7 +109,8 @@ describe('signup form', () => {
 			input: {
 				email: 'Ana.Lopez+news@example.com',
 				timezone: 'Europe/Berlin',
-				interestsText: 'Rust, databases',
+				topics: ['AI models and agents', 'Open source', 'Rust', 'local LLMs'],
+				interestsText: 'Staff engineer on a payments team',
 				stackText: '{"dependencies":{"next":"16"}}',
 				days: [1, 3, 5],
 			},
@@ -125,6 +128,18 @@ describe('signup form', () => {
 		})
 		expect(parseSignupForm(form({ ...valid, stack: '{"dependencies": ' })).ok).toBe(false)
 		expect(parseSignupForm(form({ ...valid, interests: 'x'.repeat(2001) })).ok).toBe(false)
+	})
+
+	it('needs at least one topic and caps their length and count', () => {
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: ' , ' }))).toEqual({
+			ok: false,
+			error: 'Pick at least one topic.',
+		})
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: 'Rust' })).ok).toBe(true)
+		expect(parseSignupForm(form({ ...valid, otherTopics: 'x'.repeat(101) })).ok).toBe(false)
+		const many = Array.from({ length: 41 }, (_, index) => `Topic ${index}`).join(',')
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: many })).ok).toBe(false)
+		expect(parseSignupForm(form({ ...valid, otherTopics: 'x,'.repeat(501) })).ok).toBe(false)
 	})
 })
 
@@ -154,7 +169,11 @@ describe('emails and links', () => {
 			to: 'ana@example.com',
 			feedUrl: 'https://diffcast.fm/api/feed/abc',
 			pageUrl: 'https://diffcast.fm/l/abc?a=1&b=2',
+			firstEpisode: 'Tomorrow, Thursday, November 19, by 6:00 AM PST (daily news)',
 		})
+		expect(email.text).toContain(
+			'Your first episode: Tomorrow, Thursday, November 19, by 6:00 AM PST (daily news).'
+		)
 		expect(email.text).toContain('https://diffcast.fm/api/feed/abc')
 		expect(email.text).toContain('https://diffcast.fm/l/abc?a=1&b=2')
 		expect(email.html).toContain('https://diffcast.fm/l/abc?a=1&amp;b=2')

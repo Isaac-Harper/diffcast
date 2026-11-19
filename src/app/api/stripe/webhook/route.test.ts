@@ -13,7 +13,7 @@ interface FakeListener {
 	subscriptionId: string
 	status: string
 	periodEnd: Date | null
-	interestsSeeded: number
+	topicsSeeded: readonly string[]
 }
 
 const state = vi.hoisted(() => ({
@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
 			id: number
 			email: string
 			timezone: string
+			topics: string[]
 			interests_text: string
 			stack_text: string
 			days: number[]
@@ -74,6 +75,8 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => {
 	}
 })
 
+vi.mock('@/lib/store/episodes', () => ({ latestEpisodeDate: async () => null }))
+
 vi.mock('@/lib/store/feed-tokens', () => ({
 	addFeedToken: async (listenerId: number, label: string) => {
 		state.tokens.push({ listenerId, label, revoked: false })
@@ -98,6 +101,9 @@ vi.mock('@/lib/store/billing', () => ({
 	upsertPaidListener: async (input: {
 		signupId: number
 		email: string
+		timezone: string
+		days: number[]
+		topics: readonly string[]
 		customerId: string
 		subscription: { subscriptionId: string; status: string; periodEnd: Date | null }
 	}) => {
@@ -111,7 +117,7 @@ vi.mock('@/lib/store/billing', () => ({
 				subscriptionId: input.subscription.subscriptionId,
 				status: input.subscription.status,
 				periodEnd: input.subscription.periodEnd,
-				interestsSeeded: 6,
+				topicsSeeded: input.topics,
 			}
 			state.listeners.push(listener)
 		}
@@ -120,7 +126,7 @@ vi.mock('@/lib/store/billing', () => ({
 		for (const signup of state.signups.values()) {
 			if (signup.id === input.signupId) signup.listener_id = listener.id
 		}
-		return listener.id
+		return { id: listener.id, timezone: input.timezone, days: input.days }
 	},
 	markSignupCompleted: async (signupId: number) => {
 		for (const signup of state.signups.values()) {
@@ -200,6 +206,7 @@ beforeEach(() => {
 				id: 1,
 				email: 'ana.lopez@example.com',
 				timezone: 'Europe/Berlin',
+				topics: ['Rust', 'Databases'],
 				interests_text: 'Rust',
 				stack_text: 'npm:next',
 				days: [1, 2, 3, 4, 5, 6, 7],
@@ -241,6 +248,7 @@ describe('stripe webhook', () => {
 				subscriptionId: 'sub_one',
 				status: 'active',
 				periodEnd: new Date(PERIOD_END * 1000),
+				topicsSeeded: ['Rust', 'Databases'],
 			},
 		])
 		expect(state.tokens).toEqual([{ listenerId: 1, label: 'Welcome email', revoked: false }])
@@ -248,7 +256,18 @@ describe('stripe webhook', () => {
 		expect(state.mailer.sent).toHaveLength(1)
 		expect(state.mailer.sent[0]?.to).toBe('ana.lopez@example.com')
 		expect(state.mailer.sent[0]?.text).toMatch(/https:\/\/diffcast\.fm\/api\/feed\/[0-9a-f]{64}/)
+		expect(state.mailer.sent[0]?.text).toMatch(
+			/Your first episode: (Today|Tomorrow), \w+day, \w+ \d+, by 6:00 AM GMT\+1 \(/
+		)
 		expect(state.signups.get('cs_test_one')?.completed_at).toBe('now')
+	})
+
+	it('seeds the default topics for a signup saved before topics existed', async () => {
+		const signup = state.signups.get('cs_test_one')
+		if (!signup) throw new Error('fixture missing')
+		signup.topics = []
+		await send(signed(event('checkout.session.completed', checkoutSession())))
+		expect(state.listeners[0]?.topicsSeeded).toHaveLength(6)
 	})
 
 	it('answers a duplicate event with 200 and does nothing again', async () => {

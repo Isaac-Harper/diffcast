@@ -49,6 +49,13 @@ export async function lastEpisodeDates(
 	return new Map(rows.map((row) => [row.listener_id, row.last]))
 }
 
+export async function latestEpisodeDate(listenerId: number): Promise<string | null> {
+	const rows = (await sql`
+		SELECT max(published_on)::text AS latest FROM episodes WHERE listener_id = ${listenerId}
+	`) as { latest: string | null }[]
+	return rows[0]?.latest ?? null
+}
+
 export async function recentEpisodes(listenerId: number, limit: number): Promise<RecentEpisode[]> {
 	const rows = (await sql`
 		SELECT published_on::text AS date, title, segments FROM episodes
