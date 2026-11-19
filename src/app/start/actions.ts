@@ -7,6 +7,7 @@ import { requestOrigin } from '@/lib/http'
 import { clientIp } from '@/lib/login-throttle'
 import { parseSignupForm, signupAttempts } from '@/lib/signup'
 import { attachCheckoutSession, createSignup, returningCustomer } from '@/lib/store/billing'
+import { recordEvent } from '@/lib/store/events'
 import { findServedListenerByEmail } from '@/lib/store/listeners'
 
 export type StartResult = { status: 'idle' | 'error' | 'existing'; message: string }
@@ -33,6 +34,7 @@ export async function startCheckout(_previous: StartResult, form: FormData): Pro
 		}
 	}
 	const signupId = await createSignup(input)
+	await recordEvent('signup_start')
 	const customer = await returningCustomer(input.email)
 	const origin = requestOrigin(await headers())
 	const session = await stripe().checkout.sessions.create({
@@ -48,6 +50,7 @@ export async function startCheckout(_previous: StartResult, form: FormData): Pro
 		cancel_url: `${origin}/start?canceled=1`,
 	})
 	await attachCheckoutSession(signupId, session.id)
+	await recordEvent('checkout_start')
 	if (!session.url) throw new Error(`Checkout session ${session.id} has no URL`)
 	redirect(session.url)
 }

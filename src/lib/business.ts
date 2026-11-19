@@ -5,6 +5,8 @@ export interface BusinessCounts {
 	served: number
 	paying: number
 	comped: number
+	canceling: number
+	endedThisWeek: number
 	signupsStarted: number
 	signupsCompleted: number
 	episodesToday: number

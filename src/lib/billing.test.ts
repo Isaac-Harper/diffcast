@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type Stripe from 'stripe'
 import { customerDashboardUrl } from './billing/stripe'
+import { subscriptionState } from './billing/webhook'
 import { businessReport } from './business'
 import { signInEmail, subscriptionEndedEmail, welcomeEmail } from './email/templates'
 import {
@@ -10,7 +12,7 @@ import {
 	signListenerSession,
 	verifyListenerSession,
 } from './listener-session'
-import { isServed, planOf } from './served'
+import { cancelScheduled, isServed, planOf } from './served'
 import { signingKey, signSession, verifySession } from './session'
 import { nameFromEmail, parseSignupForm } from './signup'
 
@@ -96,7 +98,9 @@ describe('signup form', () => {
 	const valid = {
 		email: ' Ana.Lopez+news@example.com ',
 		timezone: 'Europe/Berlin',
-		interests: 'Rust, databases',
+		topics: ['AI models and agents', 'Open source'],
+		otherTopics: ' Rust,  local   LLMs ,open source\n',
+		interests: 'Staff engineer on a payments team',
 		stack: '{"dependencies":{"next":"16"}}',
 		days: ['1', '3', '5'],
 	}
@@ -107,7 +111,8 @@ describe('signup form', () => {
 			input: {
 				email: 'Ana.Lopez+news@example.com',
 				timezone: 'Europe/Berlin',
-				interestsText: 'Rust, databases',
+				topics: ['AI models and agents', 'Open source', 'Rust', 'local LLMs'],
+				interestsText: 'Staff engineer on a payments team',
 				stackText: '{"dependencies":{"next":"16"}}',
 				days: [1, 3, 5],
 			},
@@ -126,6 +131,18 @@ describe('signup form', () => {
 		expect(parseSignupForm(form({ ...valid, stack: '{"dependencies": ' })).ok).toBe(false)
 		expect(parseSignupForm(form({ ...valid, interests: 'x'.repeat(2001) })).ok).toBe(false)
 	})
+
+	it('needs at least one topic and caps their length and count', () => {
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: ' , ' }))).toEqual({
+			ok: false,
+			error: 'Pick at least one topic.',
+		})
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: 'Rust' })).ok).toBe(true)
+		expect(parseSignupForm(form({ ...valid, otherTopics: 'x'.repeat(101) })).ok).toBe(false)
+		const many = Array.from({ length: 41 }, (_, index) => `Topic ${index}`).join(',')
+		expect(parseSignupForm(form({ ...valid, topics: [], otherTopics: many })).ok).toBe(false)
+		expect(parseSignupForm(form({ ...valid, otherTopics: 'x,'.repeat(501) })).ok).toBe(false)
+	})
 })
 
 describe('business report', () => {
@@ -134,6 +151,8 @@ describe('business report', () => {
 			served: 5,
 			paying: 3,
 			comped: 2,
+			canceling: 1,
+			endedThisWeek: 0,
 			signupsStarted: 4,
 			signupsCompleted: 3,
 			episodesToday: 5,
@@ -154,7 +173,11 @@ describe('emails and links', () => {
 			to: 'ana@example.com',
 			feedUrl: 'https://diffcast.fm/api/feed/abc',
 			pageUrl: 'https://diffcast.fm/l/abc?a=1&b=2',
+			firstEpisode: 'Tomorrow, Thursday, November 19, by 6:00 AM PST (daily news)',
 		})
+		expect(email.text).toContain(
+			'Your first episode: Tomorrow, Thursday, November 19, by 6:00 AM PST (daily news).'
+		)
 		expect(email.text).toContain('https://diffcast.fm/api/feed/abc')
 		expect(email.text).toContain('https://diffcast.fm/l/abc?a=1&b=2')
 		expect(email.html).toContain('https://diffcast.fm/l/abc?a=1&amp;b=2')
@@ -176,5 +199,58 @@ describe('emails and links', () => {
 		expect(customerDashboardUrl('cus_1', 'sk_live_x')).toBe(
 			'https://dashboard.stripe.com/customers/cus_1'
 		)
+	})
+})
+
+describe('subscription state', () => {
+	const PERIOD_END = 1_800_000_000
+	function subscription(fields: Partial<Stripe.Subscription>): Stripe.Subscription {
+		return {
+			id: 'sub_one',
+			status: 'active',
+			items: { data: [{ current_period_end: PERIOD_END }] },
+			cancel_at: null,
+			cancel_at_period_end: false,
+			canceled_at: null,
+			...fields,
+		} as unknown as Stripe.Subscription
+	}
+
+	it('reads a cancel at period end from either Stripe field', () => {
+		const asked = new Date((PERIOD_END - 100) * 1000)
+		for (const fields of [{ cancel_at_period_end: true }, { cancel_at: PERIOD_END }]) {
+			expect(subscriptionState(subscription({ ...fields, canceled_at: PERIOD_END - 100 }))).toEqual(
+				{
+					subscriptionId: 'sub_one',
+					status: 'active',
+					periodEnd: new Date(PERIOD_END * 1000),
+					cancelAt: new Date(PERIOD_END * 1000),
+					cancelRequestedAt: asked,
+				}
+			)
+		}
+	})
+
+	it('drops a stale request time once the cancel is undone, keeps it once canceled', () => {
+		expect(subscriptionState(subscription({ canceled_at: PERIOD_END - 100 }))).toMatchObject({
+			cancelAt: null,
+			cancelRequestedAt: null,
+		})
+		expect(
+			subscriptionState(subscription({ status: 'canceled', canceled_at: PERIOD_END - 100 }))
+		).toMatchObject({ cancelAt: null, cancelRequestedAt: new Date((PERIOD_END - 100) * 1000) })
+	})
+
+	it('counts a scheduled cancel only for a served, paying listener', () => {
+		const base = {
+			active: true,
+			comped: false,
+			subscription_status: 'active',
+			cancel_at: '2026-12-18',
+		}
+		expect(cancelScheduled(base)).toBe(true)
+		expect(cancelScheduled({ ...base, cancel_at: null })).toBe(false)
+		expect(cancelScheduled({ ...base, comped: true })).toBe(false)
+		expect(cancelScheduled({ ...base, subscription_status: 'canceled' })).toBe(false)
 	})
 })

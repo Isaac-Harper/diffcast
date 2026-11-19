@@ -2,7 +2,8 @@ import type Stripe from 'stripe'
 import { currentMailer } from '../email/resend-mailer'
 import { subscriptionEndedEmail, welcomeEmail } from '../email/templates'
 import { feedUrl, hashFeedToken, listenerPageUrl, newFeedToken } from '../feed-tokens'
-import { SERVED_STATUSES } from '../served'
+import { DEFAULT_INTERESTS } from '../interests'
+import { describeNextEpisode, nextEpisode } from '../next-episode'
 import { nameFromEmail } from '../signup'
 import { parseStack } from '../stack-parser'
 import {
@@ -13,6 +14,8 @@ import {
 	upsertPaidListener,
 } from '../store/billing'
 import type { SubscriptionState } from '../store/billing'
+import { latestEpisodeDate } from '../store/episodes'
+import { recordEvent } from '../store/events'
 import { addFeedToken, revokeFeedToken } from '../store/feed-tokens'
 import { PROJECT_METADATA, stripe } from './stripe'
 
@@ -25,21 +28,26 @@ function objectId(value: string | { id: string } | null | undefined): string | n
 	return typeof value === 'string' ? value : value.id
 }
 
+function fromUnix(seconds: number | null | undefined): Date | null {
+	return seconds === null || seconds === undefined ? null : new Date(seconds * 1000)
+}
+
 export function subscriptionState(subscription: Stripe.Subscription): SubscriptionState {
-	const periodEnd = subscription.items.data[0]?.current_period_end
+	const periodEnd = fromUnix(subscription.items.data[0]?.current_period_end)
+	const cancelAt =
+		fromUnix(subscription.cancel_at) ?? (subscription.cancel_at_period_end ? periodEnd : null)
+	const canceled = cancelAt !== null || subscription.status === 'canceled'
 	return {
 		subscriptionId: subscription.id,
 		status: subscription.status,
-		periodEnd: periodEnd === undefined ? null : new Date(periodEnd * 1000),
+		periodEnd,
+		cancelAt,
+		cancelRequestedAt: canceled ? fromUnix(subscription.canceled_at) : null,
 	}
 }
 
 async function retrieveSubscription(id: string): Promise<SubscriptionState> {
 	return subscriptionState(await stripe().subscriptions.retrieve(id))
-}
-
-function isServedStatus(status: string | null): boolean {
-	return (SERVED_STATUSES as readonly string[]).includes(status ?? '')
 }
 
 async function completeCheckout(
@@ -58,12 +66,13 @@ async function completeCheckout(
 	}
 	const stack = parseStack(signup.stack_text)
 	if (!stack.ok) throw new Error(`Signup ${signup.id} stack no longer parses: ${stack.error}`)
-	const listenerId = await upsertPaidListener({
+	const listener = await upsertPaidListener({
 		signupId: signup.id,
 		name: nameFromEmail(signup.email),
 		email: signup.email,
 		timezone: signup.timezone,
 		focus: signup.interests_text,
+		topics: signup.topics.length > 0 ? signup.topics : DEFAULT_INTERESTS,
 		stack: stack.dependencies,
 		days: signup.days,
 		customerId,
@@ -71,13 +80,21 @@ async function completeCheckout(
 	})
 	await stripe().customers.update(customerId, { metadata: { ...PROJECT_METADATA } })
 	const token = newFeedToken()
-	const tokenId = await addFeedToken(listenerId, 'Welcome email', hashFeedToken(token))
+	const now = new Date()
+	const first = nextEpisode(
+		now,
+		listener.timezone,
+		listener.days,
+		await latestEpisodeDate(listener.id)
+	)
+	const tokenId = await addFeedToken(listener.id, 'Welcome email', hashFeedToken(token))
 	try {
 		await currentMailer().send(
 			welcomeEmail({
 				to: signup.email,
 				feedUrl: feedUrl(origin, token),
 				pageUrl: listenerPageUrl(origin, token),
+				firstEpisode: describeNextEpisode(now, first, listener.timezone),
 			})
 		)
 	} catch (error) {
@@ -92,8 +109,8 @@ async function refreshSubscription(subscriptionId: string): Promise<EventOutcome
 	if ((await listenerForSubscription(subscriptionId)) === null) return 'ignored'
 	const change = await syncSubscription(await retrieveSubscription(subscriptionId))
 	if (!change) return 'ignored'
-	const ended = isServedStatus(change.previousStatus) && !isServedStatus(change.status)
-	if (ended && !change.comped && change.email) {
+	if (change.serviceEnded) await recordEvent('cancel')
+	if (change.serviceEnded && change.email) {
 		await currentMailer().send(subscriptionEndedEmail({ to: change.email }))
 	}
 	return 'handled'

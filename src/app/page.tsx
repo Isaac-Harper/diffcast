@@ -1,3 +1,4 @@
+import { RecordOnView } from './components/browser-events'
 import { SiteFooter, SiteHeader } from './components/site-chrome'
 import { Episode } from './landing/episode'
 import { Faq } from './landing/faq'
@@ -20,6 +21,7 @@ export default function Home() {
 				<Join />
 			</main>
 			<SiteFooter />
+			<RecordOnView kind="landing_view" />
 		</>
 	)
 }

@@ -8,7 +8,12 @@ import {
 } from '@/lib/listener-session'
 import { signInByEmail, signInByIp, SIGN_IN_SENT } from '@/lib/signin'
 import { signupAttempts } from '@/lib/signup'
-import { issueAccountFeedLink, saveAccountDays, signOutEverywhere } from './account/actions'
+import {
+	cancelSubscription,
+	issueAccountFeedLink,
+	saveAccountDays,
+	signOutEverywhere,
+} from './account/actions'
 import { confirmSignIn, requestSignIn } from './signin/actions'
 import { startCheckout } from './start/actions'
 
@@ -21,11 +26,15 @@ const state = vi.hoisted(() => ({
 	served: new Map<string, { id: number; email: string }>(),
 	loginTokens: new Map<string, { listenerId: number; used: boolean }>(),
 	signups: [] as unknown[],
+	recorded: [] as string[],
 	sessions: [] as Record<string, unknown>[],
 	days: [] as { listenerId: number; days: number[] }[],
 	tokens: [] as { listenerId: number; label: string }[],
 	revoked: [] as number[],
 	epochs: new Map<number, number>(),
+	account: null as Record<string, unknown> | null,
+	subscriptionUpdates: [] as { id: string; params: Record<string, unknown> }[],
+	synced: [] as Record<string, unknown>[],
 	mailer: null as unknown as FakeMailer,
 }))
 
@@ -63,9 +72,24 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => ({
 				},
 			},
 		},
+		subscriptions: {
+			update: async (id: string, params: Record<string, unknown>) => {
+				state.subscriptionUpdates.push({ id, params })
+				return {
+					id,
+					status: 'active',
+					items: { data: [{ current_period_end: 1_800_000_000 }] },
+					cancel_at: 1_800_000_000,
+					cancel_at_period_end: true,
+					canceled_at: 1_790_000_000,
+				}
+			},
+		},
 	}),
 }))
 vi.mock('@/lib/store/listeners', () => ({
+	getListener: async (listenerId: number) =>
+		listenerId === 5 && state.account ? { id: 5, ...state.account } : null,
 	findServedListenerByEmail: async (email: string) => state.served.get(email.toLowerCase()) ?? null,
 	setListenerDays: async (listenerId: number, days: number[]) => {
 		state.days.push({ listenerId, days })
@@ -84,6 +108,15 @@ vi.mock('@/lib/store/billing', () => ({
 	},
 	returningCustomer: async () => null,
 	attachCheckoutSession: async () => undefined,
+	syncSubscription: async (input: Record<string, unknown>) => {
+		state.synced.push(input)
+		return null
+	},
+}))
+vi.mock('@/lib/store/events', () => ({
+	recordEvent: async (kind: string) => {
+		state.recorded.push(kind)
+	},
 }))
 vi.mock('@/lib/store/login-tokens', () => ({
 	addLoginToken: async (listenerId: number, hash: string) => {
@@ -128,14 +161,29 @@ beforeEach(() => {
 	state.tokens = []
 	state.revoked = []
 	state.epochs = new Map([[5, 2]])
+	state.account = {
+		active: true,
+		comped: false,
+		subscription_status: 'active',
+		stripe_subscription_id: 'sub_five',
+		cancel_at: null,
+	}
+	state.subscriptionUpdates = []
+	state.synced = []
 	state.mailer = new FakeMailer()
+	state.recorded = []
 	signupAttempts.clear()
 	signInByIp.clear()
 	signInByEmail.clear()
 })
 
 describe('start checkout', () => {
-	const valid = { email: 'new@example.com', timezone: 'America/Chicago', days: ['1', '2'] }
+	const valid = {
+		email: 'new@example.com',
+		timezone: 'America/Chicago',
+		days: ['1', '2'],
+		topics: ['Open source'],
+	}
 
 	it('saves the signup and redirects to a subscription checkout tagged for diffcast', async () => {
 		await expect(startCheckout(IDLE, form(valid))).rejects.toMatchObject({
@@ -156,6 +204,7 @@ describe('start checkout', () => {
 			}),
 		])
 		expect(state.sessions[0]).not.toHaveProperty('payment_method_types')
+		expect(state.recorded).toEqual(['signup_start', 'checkout_start'])
 	})
 
 	it('sends an existing subscriber to sign in instead of a second checkout', async () => {
@@ -163,6 +212,7 @@ describe('start checkout', () => {
 		expect(result.status).toBe('existing')
 		expect(state.sessions).toEqual([])
 		expect(state.signups).toEqual([])
+		expect(state.recorded).toEqual([])
 	})
 
 	it('rejects bad input and throttles by IP', async () => {
@@ -263,6 +313,38 @@ describe('account actions', () => {
 		await expect(saveAccountDays(IDLE, form({ days: ['4'] }))).rejects.toMatchObject({
 			digest: expect.stringMatching(/\/signin/),
 		})
+	})
+
+	it('cancels the session listener at period end and records it at once', async () => {
+		await expect(cancelSubscription()).rejects.toMatchObject({
+			digest: expect.stringMatching(/\/signin/),
+		})
+		state.cookie = session()
+		await cancelSubscription()
+		expect(state.subscriptionUpdates).toEqual([
+			{ id: 'sub_five', params: { cancel_at_period_end: true } },
+		])
+		expect(state.synced).toEqual([
+			{
+				subscriptionId: 'sub_five',
+				status: 'active',
+				periodEnd: new Date(1_800_000_000_000),
+				cancelAt: new Date(1_800_000_000_000),
+				cancelRequestedAt: new Date(1_790_000_000_000),
+			},
+		])
+	})
+
+	it('cancels nothing that is already canceling, comped or not served', async () => {
+		state.cookie = session()
+		state.account = { ...state.account, cancel_at: '2027-01-15 10:00:00+00' }
+		await cancelSubscription()
+		expect(state.subscriptionUpdates).toEqual([])
+		for (const change of [{ comped: true }, { subscription_status: 'canceled' }]) {
+			state.account = { ...state.account, cancel_at: null, ...change }
+			await expect(cancelSubscription()).rejects.toThrow(/no subscription to cancel/)
+		}
+		expect(state.subscriptionUpdates).toEqual([])
 	})
 
 	it('signs out everywhere, this browser included', async () => {
