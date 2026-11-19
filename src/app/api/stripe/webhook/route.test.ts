@@ -34,7 +34,7 @@ const state = vi.hoisted(() => ({
 	>(),
 	listeners: [] as FakeListener[],
 	subscriptions: new Map<string, { status: string; periodEnd: number }>(),
-	tokens: [] as { listenerId: number; label: string }[],
+	tokens: [] as { listenerId: number; label: string; revoked: boolean }[],
 	taggedCustomers: [] as string[],
 	mailer: null as unknown as FakeMailer,
 }))
@@ -79,7 +79,12 @@ vi.mock('@/lib/store/episodes', () => ({ latestEpisodeDate: async () => null }))
 
 vi.mock('@/lib/store/feed-tokens', () => ({
 	addFeedToken: async (listenerId: number, label: string) => {
-		state.tokens.push({ listenerId, label })
+		state.tokens.push({ listenerId, label, revoked: false })
+		return state.tokens.length
+	},
+	revokeFeedToken: async (id: number) => {
+		const token = state.tokens[id - 1]
+		if (token) token.revoked = true
 	},
 }))
 
@@ -246,7 +251,7 @@ describe('stripe webhook', () => {
 				topicsSeeded: ['Rust', 'Databases'],
 			},
 		])
-		expect(state.tokens).toEqual([{ listenerId: 1, label: 'Welcome email' }])
+		expect(state.tokens).toEqual([{ listenerId: 1, label: 'Welcome email', revoked: false }])
 		expect(state.taggedCustomers).toEqual(['cus_one'])
 		expect(state.mailer.sent).toHaveLength(1)
 		expect(state.mailer.sent[0]?.to).toBe('ana.lopez@example.com')
@@ -292,6 +297,7 @@ describe('stripe webhook', () => {
 		expect((await send(signed(body))).status).toBe(200)
 		expect(state.listeners).toHaveLength(1)
 		expect(state.mailer.sent).toHaveLength(1)
+		expect(state.tokens.map((token) => token.revoked)).toEqual([true, false])
 		expect(state.signups.get('cs_test_one')?.completed_at).toBe('now')
 	})
 

@@ -16,7 +16,7 @@ import {
 } from '../store/billing'
 import type { SubscriptionState } from '../store/billing'
 import { latestEpisodeDate } from '../store/episodes'
-import { addFeedToken } from '../store/feed-tokens'
+import { addFeedToken, revokeFeedToken } from '../store/feed-tokens'
 import { PROJECT_METADATA, stripe } from './stripe'
 
 export type EventOutcome = 'handled' | 'ignored'
@@ -75,7 +75,6 @@ async function completeCheckout(
 	})
 	await stripe().customers.update(customerId, { metadata: { ...PROJECT_METADATA } })
 	const token = newFeedToken()
-	await addFeedToken(listener.id, 'Welcome email', hashFeedToken(token))
 	const now = new Date()
 	const first = nextEpisode(
 		now,
@@ -83,14 +82,20 @@ async function completeCheckout(
 		listener.days,
 		await latestEpisodeDate(listener.id)
 	)
-	await currentMailer().send(
-		welcomeEmail({
-			to: signup.email,
-			feedUrl: feedUrl(origin, token),
-			pageUrl: listenerPageUrl(origin, token),
-			firstEpisode: describeNextEpisode(now, first, listener.timezone),
-		})
-	)
+	const tokenId = await addFeedToken(listener.id, 'Welcome email', hashFeedToken(token))
+	try {
+		await currentMailer().send(
+			welcomeEmail({
+				to: signup.email,
+				feedUrl: feedUrl(origin, token),
+				pageUrl: listenerPageUrl(origin, token),
+				firstEpisode: describeNextEpisode(now, first, listener.timezone),
+			})
+		)
+	} catch (error) {
+		await revokeFeedToken(tokenId)
+		throw error
+	}
 	await markSignupCompleted(signup.id)
 	return 'handled'
 }
