@@ -2,7 +2,6 @@ import type Stripe from 'stripe'
 import { currentMailer } from '../email/resend-mailer'
 import { subscriptionEndedEmail, welcomeEmail } from '../email/templates'
 import { feedUrl, hashFeedToken, listenerPageUrl, newFeedToken } from '../feed-tokens'
-import { SERVED_STATUSES } from '../served'
 import { nameFromEmail } from '../signup'
 import { parseStack } from '../stack-parser'
 import {
@@ -25,21 +24,26 @@ function objectId(value: string | { id: string } | null | undefined): string | n
 	return typeof value === 'string' ? value : value.id
 }
 
+function fromUnix(seconds: number | null | undefined): Date | null {
+	return seconds === null || seconds === undefined ? null : new Date(seconds * 1000)
+}
+
 export function subscriptionState(subscription: Stripe.Subscription): SubscriptionState {
-	const periodEnd = subscription.items.data[0]?.current_period_end
+	const periodEnd = fromUnix(subscription.items.data[0]?.current_period_end)
+	const cancelAt =
+		fromUnix(subscription.cancel_at) ?? (subscription.cancel_at_period_end ? periodEnd : null)
+	const canceled = cancelAt !== null || subscription.status === 'canceled'
 	return {
 		subscriptionId: subscription.id,
 		status: subscription.status,
-		periodEnd: periodEnd === undefined ? null : new Date(periodEnd * 1000),
+		periodEnd,
+		cancelAt,
+		cancelRequestedAt: canceled ? fromUnix(subscription.canceled_at) : null,
 	}
 }
 
 async function retrieveSubscription(id: string): Promise<SubscriptionState> {
 	return subscriptionState(await stripe().subscriptions.retrieve(id))
-}
-
-function isServedStatus(status: string | null): boolean {
-	return (SERVED_STATUSES as readonly string[]).includes(status ?? '')
 }
 
 async function completeCheckout(
@@ -87,8 +91,7 @@ async function refreshSubscription(subscriptionId: string): Promise<EventOutcome
 	if ((await listenerForSubscription(subscriptionId)) === null) return 'ignored'
 	const change = await syncSubscription(await retrieveSubscription(subscriptionId))
 	if (!change) return 'ignored'
-	const ended = isServedStatus(change.previousStatus) && !isServedStatus(change.status)
-	if (ended && !change.comped && change.email) {
+	if (change.serviceEnded && change.email) {
 		await currentMailer().send(subscriptionEndedEmail({ to: change.email }))
 	}
 	return 'handled'

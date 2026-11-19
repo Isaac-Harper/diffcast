@@ -1,6 +1,7 @@
 import type { Dependency } from '@shared/contract'
 import { sql } from '../db'
 import { DEFAULT_INTERESTS } from '../interests'
+import { SERVED_STATUSES } from '../served'
 import type { SignupInput } from '../signup'
 
 export interface SignupRow {
@@ -18,6 +19,8 @@ export interface SubscriptionState {
 	subscriptionId: string
 	status: string
 	periodEnd: Date | null
+	cancelAt: Date | null
+	cancelRequestedAt: Date | null
 }
 
 export interface SubscriptionChange {
@@ -26,6 +29,11 @@ export interface SubscriptionChange {
 	comped: boolean
 	previousStatus: string | null
 	status: string
+	serviceEnded: boolean
+}
+
+function isoOrNull(date: Date | null): string | null {
+	return date === null ? null : date.toISOString()
 }
 
 export async function createSignup(input: SignupInput): Promise<number> {
@@ -69,15 +77,21 @@ export async function upsertPaidListener(input: {
 	const rows = (await sql`
 		WITH upserted AS (
 			INSERT INTO listeners (name, email, timezone, stack, focus, days, stripe_customer_id,
-				stripe_subscription_id, subscription_status, current_period_end)
+				stripe_subscription_id, subscription_status, current_period_end, cancel_at,
+				cancel_requested_at)
 			VALUES (${input.name}, ${input.email}, ${input.timezone}, ${JSON.stringify(input.stack)}::jsonb,
 				${input.focus}, ${input.days}::smallint[], ${input.customerId},
 				${input.subscription.subscriptionId}, ${input.subscription.status},
-				${input.subscription.periodEnd?.toISOString() ?? null}::timestamptz)
+				${isoOrNull(input.subscription.periodEnd)}::timestamptz,
+				${isoOrNull(input.subscription.cancelAt)}::timestamptz,
+				${isoOrNull(input.subscription.cancelRequestedAt)}::timestamptz)
 			ON CONFLICT (stripe_customer_id) DO UPDATE SET
 				stripe_subscription_id = EXCLUDED.stripe_subscription_id,
 				subscription_status = EXCLUDED.subscription_status,
-				current_period_end = EXCLUDED.current_period_end
+				current_period_end = EXCLUDED.current_period_end,
+				cancel_at = EXCLUDED.cancel_at,
+				cancel_requested_at = EXCLUDED.cancel_requested_at,
+				service_ended_at = NULL
 			RETURNING id, (xmax = 0) AS inserted
 		), seeded AS (
 			INSERT INTO interests (listener_id, topic, sort)
@@ -109,17 +123,29 @@ export async function listenerForSubscription(subscriptionId: string): Promise<n
 export async function syncSubscription(
 	state: SubscriptionState
 ): Promise<SubscriptionChange | null> {
+	const served = (SERVED_STATUSES as readonly string[]).includes(state.status)
 	const rows = (await sql`
 		WITH previous AS (
-			SELECT id, subscription_status FROM listeners
+			SELECT id, subscription_status, subscription_status = ANY(${[...SERVED_STATUSES]}::text[])
+				AS was_served
+			FROM listeners
 			WHERE stripe_subscription_id = ${state.subscriptionId}
 			FOR UPDATE
 		)
 		UPDATE listeners l SET subscription_status = ${state.status},
-			current_period_end = ${state.periodEnd?.toISOString() ?? null}::timestamptz
+			current_period_end = ${isoOrNull(state.periodEnd)}::timestamptz,
+			cancel_at = ${isoOrNull(state.cancelAt)}::timestamptz,
+			cancel_requested_at = ${isoOrNull(state.cancelRequestedAt)}::timestamptz,
+			service_ended_at = CASE
+				WHEN ${served}::boolean THEN NULL
+				WHEN coalesce(previous.was_served, false) AND NOT l.comped THEN now()
+				ELSE l.service_ended_at
+			END
 		FROM previous WHERE l.id = previous.id
 		RETURNING l.id AS "listenerId", l.email, l.comped,
-			previous.subscription_status AS "previousStatus", l.subscription_status AS status
+			previous.subscription_status AS "previousStatus", l.subscription_status AS status,
+			(coalesce(previous.was_served, false) AND NOT ${served}::boolean AND NOT l.comped)
+				AS "serviceEnded"
 	`) as SubscriptionChange[]
 	return rows[0] ?? null
 }

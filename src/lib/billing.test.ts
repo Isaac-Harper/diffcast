@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type Stripe from 'stripe'
 import { customerDashboardUrl } from './billing/stripe'
+import { subscriptionState } from './billing/webhook'
 import { businessReport } from './business'
 import { signInEmail, subscriptionEndedEmail, welcomeEmail } from './email/templates'
 import {
@@ -10,7 +12,7 @@ import {
 	signListenerSession,
 	verifyListenerSession,
 } from './listener-session'
-import { isServed, planOf } from './served'
+import { cancelScheduled, isServed, planOf } from './served'
 import { signingKey, signSession, verifySession } from './session'
 import { nameFromEmail, parseSignupForm } from './signup'
 
@@ -134,6 +136,8 @@ describe('business report', () => {
 			served: 5,
 			paying: 3,
 			comped: 2,
+			canceling: 1,
+			endedThisWeek: 0,
 			signupsStarted: 4,
 			signupsCompleted: 3,
 			episodesToday: 5,
@@ -176,5 +180,58 @@ describe('emails and links', () => {
 		expect(customerDashboardUrl('cus_1', 'sk_live_x')).toBe(
 			'https://dashboard.stripe.com/customers/cus_1'
 		)
+	})
+})
+
+describe('subscription state', () => {
+	const PERIOD_END = 1_800_000_000
+	function subscription(fields: Partial<Stripe.Subscription>): Stripe.Subscription {
+		return {
+			id: 'sub_one',
+			status: 'active',
+			items: { data: [{ current_period_end: PERIOD_END }] },
+			cancel_at: null,
+			cancel_at_period_end: false,
+			canceled_at: null,
+			...fields,
+		} as unknown as Stripe.Subscription
+	}
+
+	it('reads a cancel at period end from either Stripe field', () => {
+		const asked = new Date((PERIOD_END - 100) * 1000)
+		for (const fields of [{ cancel_at_period_end: true }, { cancel_at: PERIOD_END }]) {
+			expect(subscriptionState(subscription({ ...fields, canceled_at: PERIOD_END - 100 }))).toEqual(
+				{
+					subscriptionId: 'sub_one',
+					status: 'active',
+					periodEnd: new Date(PERIOD_END * 1000),
+					cancelAt: new Date(PERIOD_END * 1000),
+					cancelRequestedAt: asked,
+				}
+			)
+		}
+	})
+
+	it('drops a stale request time once the cancel is undone, keeps it once canceled', () => {
+		expect(subscriptionState(subscription({ canceled_at: PERIOD_END - 100 }))).toMatchObject({
+			cancelAt: null,
+			cancelRequestedAt: null,
+		})
+		expect(
+			subscriptionState(subscription({ status: 'canceled', canceled_at: PERIOD_END - 100 }))
+		).toMatchObject({ cancelAt: null, cancelRequestedAt: new Date((PERIOD_END - 100) * 1000) })
+	})
+
+	it('counts a scheduled cancel only for a served, paying listener', () => {
+		const base = {
+			active: true,
+			comped: false,
+			subscription_status: 'active',
+			cancel_at: '2026-12-18',
+		}
+		expect(cancelScheduled(base)).toBe(true)
+		expect(cancelScheduled({ ...base, cancel_at: null })).toBe(false)
+		expect(cancelScheduled({ ...base, comped: true })).toBe(false)
+		expect(cancelScheduled({ ...base, subscription_status: 'canceled' })).toBe(false)
 	})
 })

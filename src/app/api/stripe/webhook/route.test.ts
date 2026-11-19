@@ -13,7 +13,15 @@ interface FakeListener {
 	subscriptionId: string
 	status: string
 	periodEnd: Date | null
+	cancelAt: Date | null
 	interestsSeeded: number
+}
+
+interface FakeSubscription {
+	status: string
+	periodEnd: number
+	cancelAtPeriodEnd?: boolean
+	canceledAt?: number
 }
 
 const state = vi.hoisted(() => ({
@@ -32,7 +40,7 @@ const state = vi.hoisted(() => ({
 		}
 	>(),
 	listeners: [] as FakeListener[],
-	subscriptions: new Map<string, { status: string; periodEnd: number }>(),
+	subscriptions: new Map<string, FakeSubscription>(),
 	tokens: [] as { listenerId: number; label: string }[],
 	taggedCustomers: [] as string[],
 	mailer: null as unknown as FakeMailer,
@@ -62,6 +70,9 @@ vi.mock('@/lib/billing/stripe', async (importOriginal) => {
 						id,
 						status: subscription.status,
 						items: { data: [{ current_period_end: subscription.periodEnd }] },
+						cancel_at: null,
+						cancel_at_period_end: subscription.cancelAtPeriodEnd ?? false,
+						canceled_at: subscription.canceledAt ?? null,
 					}
 				},
 			},
@@ -106,6 +117,7 @@ vi.mock('@/lib/store/billing', () => ({
 				subscriptionId: input.subscription.subscriptionId,
 				status: input.subscription.status,
 				periodEnd: input.subscription.periodEnd,
+				cancelAt: null,
 				interestsSeeded: 6,
 			}
 			state.listeners.push(listener)
@@ -124,18 +136,26 @@ vi.mock('@/lib/store/billing', () => ({
 	},
 	listenerForSubscription: async (id: string) =>
 		state.listeners.find((listener) => listener.subscriptionId === id)?.id ?? null,
-	syncSubscription: async (input: { subscriptionId: string; status: string; periodEnd: Date }) => {
+	syncSubscription: async (input: {
+		subscriptionId: string
+		status: string
+		periodEnd: Date
+		cancelAt: Date | null
+	}) => {
 		const listener = state.listeners.find((entry) => entry.subscriptionId === input.subscriptionId)
 		if (!listener) return null
 		const previousStatus = listener.status
+		const served = (status: string) => status === 'active' || status === 'past_due'
 		listener.status = input.status
 		listener.periodEnd = input.periodEnd
+		listener.cancelAt = input.cancelAt
 		return {
 			listenerId: listener.id,
 			email: listener.email,
 			comped: listener.comped,
 			previousStatus,
 			status: input.status,
+			serviceEnded: served(previousStatus) && !served(input.status) && !listener.comped,
 		}
 	},
 }))
@@ -341,6 +361,24 @@ describe('stripe webhook', () => {
 			signed(event('customer.subscription.updated', { id: 'sub_one', object: 'subscription' }))
 		)
 		expect(state.mailer.sent).toHaveLength(2)
+	})
+
+	it('records a cancel at period end without ending service or emailing', async () => {
+		await send(signed(event('checkout.session.completed', checkoutSession())))
+		state.subscriptions.set('sub_one', {
+			status: 'active',
+			periodEnd: PERIOD_END,
+			cancelAtPeriodEnd: true,
+			canceledAt: PERIOD_END - 86_400,
+		})
+		await send(
+			signed(event('customer.subscription.updated', { id: 'sub_one', object: 'subscription' }))
+		)
+		expect(state.listeners[0]).toMatchObject({
+			status: 'active',
+			cancelAt: new Date(PERIOD_END * 1000),
+		})
+		expect(state.mailer.sent).toHaveLength(1)
 	})
 
 	it('ignores subscription events for subscriptions it does not know', async () => {

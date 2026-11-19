@@ -6,7 +6,8 @@ import { servedListener } from './served'
 export async function businessCounts(): Promise<BusinessCounts> {
 	const rows = (await sql`
 		WITH billing AS (
-			SELECT l.comped, ${servedListener()} AS served FROM listeners l
+			SELECT l.comped, l.cancel_at, l.service_ended_at, ${servedListener()} AS served
+			FROM listeners l
 		), costed AS (
 			SELECT e.created_at,
 				coalesce((e.metrics->>'llmCostUsd')::float8, 0) + coalesce((e.metrics->>'ttsCostUsd')::float8, 0)
@@ -19,6 +20,10 @@ export async function businessCounts(): Promise<BusinessCounts> {
 			(SELECT count(*)::int FROM billing WHERE served) AS served,
 			(SELECT count(*)::int FROM billing WHERE served AND NOT comped) AS paying,
 			(SELECT count(*)::int FROM billing WHERE served AND comped) AS comped,
+			(SELECT count(*)::int FROM billing WHERE served AND NOT comped AND cancel_at IS NOT NULL)
+				AS canceling,
+			(SELECT count(*)::int FROM billing WHERE service_ended_at >= date_trunc('week', now()))
+				AS "endedThisWeek",
 			(SELECT count(*)::int FROM signups WHERE created_at >= date_trunc('week', now()))
 				AS "signupsStarted",
 			(SELECT count(*)::int FROM signups WHERE completed_at >= date_trunc('week', now()))

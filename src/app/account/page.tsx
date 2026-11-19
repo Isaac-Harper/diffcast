@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { SiteFooter, SiteHeader } from '@/app/components/site-chrome'
+import { Toaster } from '@/app/components/toaster'
 import { requestOrigin } from '@/lib/http'
 import { requireListener } from '@/lib/listener-auth'
 import { listInterests } from '@/lib/store/interests'
@@ -44,6 +45,7 @@ export default function AccountPage() {
 				</Suspense>
 			</main>
 			<SiteFooter />
+			<Toaster />
 		</>
 	)
 }

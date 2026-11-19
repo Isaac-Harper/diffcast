@@ -20,6 +20,7 @@ export function ConfirmAction({
 	description,
 	confirmLabel,
 	doneMessage,
+	dismissLabel = 'Cancel',
 	destructive = false,
 }: {
 	action: (form: FormData) => Promise<void>
@@ -30,6 +31,7 @@ export function ConfirmAction({
 	description: string
 	confirmLabel: string
 	doneMessage: string
+	dismissLabel?: string
 	destructive?: boolean
 }) {
 	async function run() {
@@ -52,7 +54,7 @@ export function ConfirmAction({
 				<AlertDialogTitle>{title}</AlertDialogTitle>
 				<AlertDialogDescription>{description}</AlertDialogDescription>
 				<div className="mt-2 flex flex-wrap justify-end gap-2">
-					<AlertDialogClose>Cancel</AlertDialogClose>
+					<AlertDialogClose>{dismissLabel}</AlertDialogClose>
 					<AlertDialogClose
 						value="confirm"
 						action={run}
