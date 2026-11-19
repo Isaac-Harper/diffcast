@@ -13,7 +13,7 @@ import {
 	upsertPaidListener,
 } from '../store/billing'
 import type { SubscriptionState } from '../store/billing'
-import { addFeedToken } from '../store/feed-tokens'
+import { addFeedToken, revokeFeedToken } from '../store/feed-tokens'
 import { PROJECT_METADATA, stripe } from './stripe'
 
 export type EventOutcome = 'handled' | 'ignored'
@@ -71,14 +71,19 @@ async function completeCheckout(
 	})
 	await stripe().customers.update(customerId, { metadata: { ...PROJECT_METADATA } })
 	const token = newFeedToken()
-	await addFeedToken(listenerId, 'Welcome email', hashFeedToken(token))
-	await currentMailer().send(
-		welcomeEmail({
-			to: signup.email,
-			feedUrl: feedUrl(origin, token),
-			pageUrl: listenerPageUrl(origin, token),
-		})
-	)
+	const tokenId = await addFeedToken(listenerId, 'Welcome email', hashFeedToken(token))
+	try {
+		await currentMailer().send(
+			welcomeEmail({
+				to: signup.email,
+				feedUrl: feedUrl(origin, token),
+				pageUrl: listenerPageUrl(origin, token),
+			})
+		)
+	} catch (error) {
+		await revokeFeedToken(tokenId)
+		throw error
+	}
 	await markSignupCompleted(signup.id)
 	return 'handled'
 }
